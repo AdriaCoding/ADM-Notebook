@@ -291,6 +291,7 @@ begin
 end
 
 # ╔═╡ 2e1c93da-0870-4114-927f-524a045a4347
+#=╠═╡
 begin
 	num_iters = length(ps)
 	t_train_grid = collect(range(extrema(t_train)...; length = 500))
@@ -302,9 +303,16 @@ begin
 	anim = animate_training(plot_frame, t_train, y_train, ps, ps, obs_grid)
 	gif(anim, "node_weather_forecast_training.gif")
 end
+  ╠═╡ =#
 
 # ╔═╡ 582466dc-0eb5-48b0-9964-cf8068d8b4eb
 
+
+# ╔═╡ 2dd29de0-7c24-4006-90f6-6f1d0546651f
+# ╠═╡ disabled = true
+#=╠═╡
+node, p_new, state_new = neural_ode(t_train, size(y_train, 1))
+  ╠═╡ =#
 
 # ╔═╡ feb9b723-aa02-48ed-8fcf-38c206b5aca1
 # ╠═╡ disabled = true
@@ -335,12 +343,8 @@ end
   ╠═╡ =#
 
 # ╔═╡ 38533255-d81c-4c11-ab9d-ab1cf58dfbf0
-ps, state, losses = train(t_train, y_train, obs_grid, maxiters, lr, rng; progress = true)
-
-# ╔═╡ 2dd29de0-7c24-4006-90f6-6f1d0546651f
-# ╠═╡ disabled = true
 #=╠═╡
-node, p_new, state_new = neural_ode(t_train, size(y_train, 1))
+ps, state, losses = train(t_train, y_train, obs_grid, maxiters, lr, rng; progress = true)
   ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
