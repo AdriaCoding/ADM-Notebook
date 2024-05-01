@@ -82,3 +82,8 @@ ________________________________________________________________________________
 ### Related references
 
 - https://research.google/blog/a-neural-weather-model-for-eight-hour-precipitation-forecasting/ 
+
+
+# MLP
+
+https://fluxml.ai/Flux.jl/stable/models/quickstart/
