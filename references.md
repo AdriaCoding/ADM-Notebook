@@ -48,6 +48,10 @@ without NN, with linear mathematical methods.
 - D) [Forecasting tutorial - Neural Network models](https://otexts.com/fpp2/nnetar.html):
 
 
+#### [FluxArchitectures.jl](https://github.com/sdobber/FluxArchitectures.jl) 
+
+Collection of advanced network architectures for time series forecasting.
+
 
 
 More interesting references:
@@ -86,4 +90,16 @@ ________________________________________________________________________________
 
 # MLP
 
+References:   
+- https://fluxml.ai/Flux.jl/stable/models/quickstart/  
+- [MLP in Julia code](https://github.com/MNoorFawi/multi-layer-perceptron-with-julia)
+
+Seguir con esto:
+
+https://medium.com/@sophb/an-introduction-to-deep-learning-using-flux-part-ii-multi-layer-perceptron-32526b323474
+
+https://fluxml.ai/Flux.jl/stable/models/basics/ 
+
 https://fluxml.ai/Flux.jl/stable/models/quickstart/
+
+https://fluxml.ai/Flux.jl/stable/tutorials/2021-01-26-mlp/
