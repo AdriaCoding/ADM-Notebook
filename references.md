@@ -145,6 +145,38 @@ the sequence.
     - Multiple Input Series: Have two or more parallel input time series and an output time series that is dependent on the input time series.
     [a1, a2, ..., an], [b1, b2, ..., bn] -> output series: [c1, c2, ..., cn]
 
+    Example:
+
+    Input:
+        10, 15   
+        20, 25   
+        30, 35    
+    Output: 65
+
+    In general:
+
+        [[10 15]
+        [20 25]
+        [30 35]] 65
+        [[20 25]
+        [30 35]
+        [40 45]] 85
+        [[30 35]
+        [40 45]
+        [50 55]] 105
+        [[40 45]
+        [50 55]
+        [60 65]] 125
+        [[50 55]
+        [60 65]
+        [70 75]] 145
+        [[60 65]
+        [70 75]
+        [80 85]] 165
+        [[70 75]
+        [80 85]
+        [90 95]] 185
+
     - (*) Multiple Parallel Series / Multivariate forecasting:
     Case where there are multiple parallel time series and a value must be predicted for each. Example: [(a1,b1), (a2,b2), (a3,b3),..., (an, bn)] and we want to predict
     --> (a_n+1, b_n+1) - the next value for each of the series (a and b series).  
@@ -172,7 +204,46 @@ Output: [40, 50]
 Therefore the idea would be to have a model that given a 3 time steps could predict
 the next 2 time steps: [70,80,90] --> output --> (100,110).
 
-- Multivariate Multi-Step MLP
+- Multivariate Multi-Step MLP:
+
+Variants:
+
+    - Multiple Input Multi-Step Output:
+    Multivariate time series forecasting problems where the output series is separate but dependent upon the input time series, and multiple time steps are required for the output series.
+
+    Example:
+    [[ 10  15  25]
+    [ 20  25  45]
+    [ 30  35  65]
+    [ 40  45  85]
+    [ 50  55 105]
+    [ 60  65 125]
+    [ 70  75 145]
+    [ 80  85 165]
+    [ 90  95 185]]
+
+    Input:     10, 15
+               20, 25
+               30, 35
+
+    Output:    65
+               85
+
+    - Multiple Parallel Input and Multi-Step Output:
+
+    Given multiple parallel input series:
+    [(a1, b1, c1), (a2, b2, c2), (a3, b3, c3)...(an, bn, cn)] 
+    predict as output the next num_out time steps of each of the input 
+    series: [(a_n+1, b_n+1, c_n+1), (a_n+2, b_n+2, c_n+2), ..., (a_n+num_out, b_n+num_out, c_n+num_out)]
+
+    Input:
+        10, 15, 25
+        20, 25, 45
+        30, 35, 65
+
+    Output: 
+        40, 45, 85
+        50, 55, 105
 
 ## Initial simple example - Univariate MLP model
 
