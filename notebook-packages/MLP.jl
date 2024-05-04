@@ -41,50 +41,9 @@ X
 # ╔═╡ 5e6f63bd-cebe-43df-be24-a0d45ba7a47c
 Y
 
-# ╔═╡ ba0c657c-8a78-46bb-a472-caf03c0e9200
-md"Model definition"
-
-# ╔═╡ 442c84f2-33fc-460b-8b20-c451b657dc1c
+# ╔═╡ cb5f7220-f25d-40fc-8d10-2b384bad8ea8
 md"
-- Chain -> to stack layers 
-- Dense -> fully connected neural network layers
-
-- 1st layer: Dense(lookback, 5, relu) -- it is the hidden layer
-  - Input size: lookback (window size: 3 in this case)
-  - Output size: 5 -> hidden layer has 5 neurons
-  - Activation function: relu - introduces non linearity to the model... (?) TODO: look more into this
-
-- Output layer: Dense(5,1)
-  - Input size: 5, to match the outputs of all the neurons in the hidden layer (5)
-  - Output size: 1, since we are forecasting a single future value of the time series
-"
-
-# ╔═╡ 1b3f94ff-2042-4e5e-9244-8cfc90abd834
-model = Chain(
-	Dense(lookback, 5, relu),
-	Dense(5,1)
-)
-
-# ╔═╡ eb0e1770-8caf-4802-b77b-36d29366ab59
-md"Definition of the loss function"
-
-# ╔═╡ 573b6593-29f6-4b8c-a66d-b7cd5bfeeb04
-loss(x,y) = Flux.Losses.mse(model(x), y) 
-# MSE between the model predicted value (ŷ = model(x)) and the real value: y
-
-# ╔═╡ afe845d7-7547-4b67-8cb9-2a0b841bfca5
-md"optimizer 
-- initially: simple Gradient Descent
-- More advanced optimizers: ADAM (ADaptive Moment Estimation)"
-
-# ╔═╡ 2dd27321-d37d-4d47-9f5b-ba57bd5780da
-optimizer = Descent(0.01)
-
-# ╔═╡ d3172980-5586-4ad7-ad86-5205e70fc562
-md"Training the model"
-
-# ╔═╡ 49cb0b45-52be-4021-a5d9-d30ed0064e6d
-md"
+## Training the model
 *train!(loss, params, data, opt; cb)* 
 
 For each datapoint d in data, compute the gradient of `loss` with respect to params through backpropagation and call the optimizer `opt`. If d is a tuple of arguments to loss call loss(d...), else call loss(d). 
@@ -96,82 +55,81 @@ A callback is given with the keyword argument `cb`.
 - `optimizer`: GD (Gradient Descent), SGD (Stochastic Gradient Descent), ADAM (ADaptive Moment Estimation) -- TODO: Try
 "
 
-# ╔═╡ 4cf9f259-aec5-4a7a-8a94-35424964a46e
+# ╔═╡ ba0c657c-8a78-46bb-a472-caf03c0e9200
+md"### 1. Model definition
+- Chain -> to stack layers 
+- Dense -> fully connected neural network layers
+
+- 1st layer: Dense(lookback, 5, relu) -- it is the hidden layer
+  - Input size: lookback (window size: 3 in this case)
+  - Output size: 5 -> hidden layer has 5 neurons
+  - Activation function: relu - introduces non linearity to the model... (?) TODO: look more into this
+
+- Output layer: Dense(5,1)
+  - Input size: 5, to match the outputs of all the neurons in the hidden layer (5)
+  - Output size: 1, since we are forecasting a single future value of the time series"
+
+# ╔═╡ 1b3f94ff-2042-4e5e-9244-8cfc90abd834
+model = Chain(
+	Dense(lookback, 5, relu),
+	Dense(5,1)
+)
+
+# ╔═╡ fa00e7fc-91b4-4232-b0d8-9e078045670e
 ps = Flux.params(model)
+
+# ╔═╡ eb0e1770-8caf-4802-b77b-36d29366ab59
+md"### 2. Definition of the loss function"
+
+# ╔═╡ 573b6593-29f6-4b8c-a66d-b7cd5bfeeb04
+loss(x,y) = Flux.Losses.mse(model(x), y) 
+# MSE between the model predicted value (ŷ = model(x)) and the real value: y
+
+# ╔═╡ afe845d7-7547-4b67-8cb9-2a0b841bfca5
+md"### 3. Optimizer 
+- initially: simple Gradient Descent
+- More advanced optimizers: ADAM (ADaptive Moment Estimation)"
+
+# ╔═╡ 2dd27321-d37d-4d47-9f5b-ba57bd5780da
+#optimizer = Descent(0.01)
+optimizer = ADAM(0.01)
+
+# ╔═╡ 3d48ce53-3f13-4c18-9706-b8948685a1e4
+md"### Training process"
+
+# ╔═╡ 6ffff6b9-b549-4d99-99a5-bb2d77d4472a
+data_pair = [(X,Y)]
 
 # ╔═╡ da78741c-d3f5-44be-8798-662c9de8b74b
 md"
 **In Flux, by default, each column is treated as a separate data point in matrix inputs, so your target data should likely be a matrix with the same setup.**"
 
-# ╔═╡ 499f514b-603f-48d5-9fc1-d9937c44fdf9
-
-
-# ╔═╡ 6d6fabca-9c90-4aef-abb9-330299a6c5f0
-Flux.train!(loss, ps, data_pair, optimizer)
-
-# ╔═╡ ea17305b-eb38-437f-ba02-7ad209ace269
-
-
-# ╔═╡ bd342153-172e-48fe-850f-49f6dcb905c1
-
-
-# ╔═╡ cc902406-212f-4e13-9509-6c494c5635ea
-sequence = [3,3,5] # 7
-
-# ╔═╡ 47576c63-92f5-456b-a617-bd7a962d12fc
-sequence'
-
-# ╔═╡ 7fa46c27-f6b0-4bc1-a6f0-69c6daa575d6
-model(sequence)
-
-# ╔═╡ 39cd7e08-8b50-4b15-9865-c67171df6efc
-
-
-# ╔═╡ 0ca5cac0-712a-48d4-8945-eef898b0e5a0
-
-
-# ╔═╡ bb671f86-a6a1-48d7-8884-0910ad8fb730
-
-
-# ╔═╡ 5e8a1e0a-316f-44df-ac53-977d503f8731
-
-
-# ╔═╡ 0e878649-f2c5-490b-ab97-7802db814e15
-
-
-# ╔═╡ 3cb06088-1604-4638-a5fc-de3e67380ca0
-
-
-# ╔═╡ 20b3a2a6-a9a8-44e5-b8e5-9ae7fcc8a9fa
-
-
-# ╔═╡ 0f78a709-0ed5-4010-a93a-c9c2e67a2d3f
-
-
-# ╔═╡ 5c745acf-c47a-4f5f-8382-449e6411bcc3
-
-
-# ╔═╡ e494132d-cfe2-4a69-a3e3-32b6bd7d477a
-
-
-# ╔═╡ 159721e2-009b-4cc5-815a-007dc8af9ab6
-
-
-# ╔═╡ 6ffff6b9-b549-4d99-99a5-bb2d77d4472a
-data_pair = [(X,Y)]
-
 # ╔═╡ 14b8e487-de0c-41c4-b91c-5c1414fb3472
-# ╠═╡ disabled = true
-#=╠═╡
 begin
-		data_pair = [(X,Y)]
-		epochs = 2
+		epochs = 100
 		for epoch in 1:epochs
 			Flux.train!(loss, ps, data_pair, optimizer)
 			println("Epoch $epoch, Loss: $(loss(X,Y))")
 		end
 end
-  ╠═╡ =#
+
+# ╔═╡ cc902406-212f-4e13-9509-6c494c5635ea
+sequence = [3,3,5] # 7
+
+# ╔═╡ 7fa46c27-f6b0-4bc1-a6f0-69c6daa575d6
+model(sequence)
+
+# ╔═╡ 39cd7e08-8b50-4b15-9865-c67171df6efc
+last_sequence = data[end-lookback+1:end]
+
+# ╔═╡ 0ca5cac0-712a-48d4-8945-eef898b0e5a0
+last_sequence_1 = reshape(last_sequence, :, 1)  # Ensure last_sequence is a column vector
+
+# ╔═╡ bb671f86-a6a1-48d7-8884-0910ad8fb730
+next_value_prediction = model(last_sequence_1)
+
+# ╔═╡ d26410c5-1acf-495e-a2b9-a71da5944296
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1632,36 +1590,23 @@ version = "1.4.1+1"
 # ╠═91cb2516-e674-4470-8e2c-50e3e20b36ec
 # ╠═6a93d399-2130-4435-860e-8f75d804bd87
 # ╠═5e6f63bd-cebe-43df-be24-a0d45ba7a47c
+# ╟─cb5f7220-f25d-40fc-8d10-2b384bad8ea8
 # ╟─ba0c657c-8a78-46bb-a472-caf03c0e9200
-# ╟─442c84f2-33fc-460b-8b20-c451b657dc1c
-# ╠═1b3f94ff-2042-4e5e-9244-8cfc90abd834
+# ╟─1b3f94ff-2042-4e5e-9244-8cfc90abd834
+# ╠═fa00e7fc-91b4-4232-b0d8-9e078045670e
 # ╟─eb0e1770-8caf-4802-b77b-36d29366ab59
 # ╠═573b6593-29f6-4b8c-a66d-b7cd5bfeeb04
 # ╟─afe845d7-7547-4b67-8cb9-2a0b841bfca5
 # ╠═2dd27321-d37d-4d47-9f5b-ba57bd5780da
-# ╟─d3172980-5586-4ad7-ad86-5205e70fc562
-# ╟─49cb0b45-52be-4021-a5d9-d30ed0064e6d
-# ╠═4cf9f259-aec5-4a7a-8a94-35424964a46e
+# ╟─3d48ce53-3f13-4c18-9706-b8948685a1e4
 # ╠═6ffff6b9-b549-4d99-99a5-bb2d77d4472a
 # ╠═da78741c-d3f5-44be-8798-662c9de8b74b
-# ╠═6d6fabca-9c90-4aef-abb9-330299a6c5f0
-# ╠═499f514b-603f-48d5-9fc1-d9937c44fdf9
 # ╠═14b8e487-de0c-41c4-b91c-5c1414fb3472
-# ╠═ea17305b-eb38-437f-ba02-7ad209ace269
-# ╠═bd342153-172e-48fe-850f-49f6dcb905c1
 # ╠═cc902406-212f-4e13-9509-6c494c5635ea
-# ╠═47576c63-92f5-456b-a617-bd7a962d12fc
 # ╠═7fa46c27-f6b0-4bc1-a6f0-69c6daa575d6
 # ╠═39cd7e08-8b50-4b15-9865-c67171df6efc
 # ╠═0ca5cac0-712a-48d4-8945-eef898b0e5a0
 # ╠═bb671f86-a6a1-48d7-8884-0910ad8fb730
-# ╠═5e8a1e0a-316f-44df-ac53-977d503f8731
-# ╠═0e878649-f2c5-490b-ab97-7802db814e15
-# ╠═3cb06088-1604-4638-a5fc-de3e67380ca0
-# ╠═20b3a2a6-a9a8-44e5-b8e5-9ae7fcc8a9fa
-# ╠═0f78a709-0ed5-4010-a93a-c9c2e67a2d3f
-# ╠═5c745acf-c47a-4f5f-8382-449e6411bcc3
-# ╠═e494132d-cfe2-4a69-a3e3-32b6bd7d477a
-# ╠═159721e2-009b-4cc5-815a-007dc8af9ab6
+# ╠═d26410c5-1acf-495e-a2b9-a71da5944296
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

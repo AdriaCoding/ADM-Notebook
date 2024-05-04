@@ -127,15 +127,63 @@ Important notes:
     driving the neurons into saturation.
 
 
-## Initial simple example
+[MLP time series forecasting - super good tutorial](https://machinelearningmastery.com/how-to-develop-multilayer-perceptron-models-for-time-series-forecasting/)
 
-Input data: [2 4 6 8 6 4 3 3 5 7]
+TODO: also explore this: [Configuring a MLP Network for time series forecasting](https://machinelearningmastery.com/exploratory-configuration-multilayer-perceptron-network-time-series-forecasting/)
 
-I want to predict the next output value
+
+Based on this, they define:
+
+- Univariate MLP:
+Given a time series: [x1, x2, ..., xn] it predicts the next output value (x_n+1)
+Single series of observations with a temporal ordering. Model is required
+to learn from the series of past observations to predict the next value in
+the sequence. 
+
+- Multivariate MLP: More than 1 observation for each time step. 2 models:
+
+    - Multiple Input Series: Have two or more parallel input time series and an output time series that is dependent on the input time series.
+    [a1, a2, ..., an], [b1, b2, ..., bn] -> output series: [c1, c2, ..., cn]
+
+    - (*) Multiple Parallel Series / Multivariate forecasting:
+    Case where there are multiple parallel time series and a value must be predicted for each. Example: [(a1,b1), (a2,b2), (a3,b3),..., (an, bn)] and we want to predict
+    --> (a_n+1, b_n+1) - the next value for each of the series (a and b series).  
+    HOW? -> 2 approaches:
+        - Predict with 1 single MLP.
+        - Predict each output series with a different MLP (1 per series).
+
+
+- Multi-Step MLP:
+
+Note: *In practice, there is little difference to the MLP model in predicting a vector output that represents different output variables (as in the previous example) or a vector output that represents multiple time steps of one variable. Nevertheless, there are subtle and important differences in the way the training data is prepared.*
+
+Both the input and output components will be comprised of multiple time steps
+(and may or may not have the same number of steps).
+
+Having [x1, x2, ..., xn] it predicts the next num_out time step values (x_n+1, ..., x_n+num_out)
+
+Example: Given [10, 20, 30, 40, 50, 60, 70, 80, 90] we could used the last 3 time
+steps as input and forecast the next 2 time steps. 
+
+Input: [10, 20, 30]
+
+Output: [40, 50]
+
+Therefore the idea would be to have a model that given a 3 time steps could predict
+the next 2 time steps: [70,80,90] --> output --> (100,110).
+
+- Multivariate Multi-Step MLP
+
+## Initial simple example - Univariate MLP model
+
+Given a time series: [x1, x2, ..., xn] it predicts the next output value (x_n+1)
+
+Example: Input data: [2 4 6 8 6 4 3 3 5 7]
 
 1. Split the data in windows - to provide it so as training data for training the MLP
 
 e.g. window size = 3: [2,4,6][8], [4,6,8][6], [6,8,6][4]...
 
+...
 
-Reference: https://www.freecodecamp.org/news/deep-learning-with-julia/
+## 
