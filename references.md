@@ -103,3 +103,39 @@ https://fluxml.ai/Flux.jl/stable/models/basics/
 https://fluxml.ai/Flux.jl/stable/models/quickstart/
 
 https://fluxml.ai/Flux.jl/stable/tutorials/2021-01-26-mlp/
+
+(*) Time series forecasting -> https://machinelearningmastery.com/how-to-develop-multilayer-perceptron-models-for-time-series-forecasting/
+
+
+Okay, here we go, decisions needed to take:
+
+- Architecture: Input layer, hidden layer, output layer
+
+- Loss function
+
+- Activation function: ReLU?
+
+*Slides of Neural Networks - class lecture*
+Important notes:
+    - Have more observations N (inputs) than regressors h (weights to fit) -->
+    *statistical significance of the weights decreases with h and increases with N* (?)
+
+    - Input values: should be preprocessed so that:
+        - their mean is zero and their stdev is 1 (use standardization)
+        - they are uncorrelated (use PCA)
+    - Initial weights: should be small and zero-centered, to avoid initially 
+    driving the neurons into saturation.
+
+
+## Initial simple example
+
+Input data: [2 4 6 8 6 4 3 3 5 7]
+
+I want to predict the next output value
+
+1. Split the data in windows - to provide it so as training data for training the MLP
+
+e.g. window size = 3: [2,4,6][8], [4,6,8][6], [6,8,6][4]...
+
+
+Reference: https://www.freecodecamp.org/news/deep-learning-with-julia/

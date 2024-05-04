@@ -4,9 +4,6 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ c3af0a7c-1a32-46d4-adb6-e483025fbbdf
-using Flux
-
 # ╔═╡ b6e6719f-8fd0-4fb7-889e-5a9ebf91fd5b
 # Need a loss function -> so that Flux can be told how to objetively evaluate the quality of a prediction
 using Statistics
@@ -28,9 +25,17 @@ actual(x) = 4x+ 2
 x_train, x_test = hcat(0:5...), hcat(6:10...)
 
 # ╔═╡ 5b387a8f-3c1b-4516-a037-cb8bdb71661b
-#=╠═╡
 y_train, y_test = actual.(x_train), actual.(x_test)
-  ╠═╡ =#
+
+# ╔═╡ 501ac28c-c1a3-4dca-88c0-c27b2f4b4b68
+begin
+	# Training using the loss function and the training data
+	using Flux: train!
+	# with a pluggable optimiser -> classic gradient destent in this case
+	opt = Descent()
+	# training data
+	data = [(x_train, y_train)]
+end
 
 # ╔═╡ 67d6b923-dc06-43ae-8650-ead5b7cc6e37
 # 1 input and 1 output
@@ -51,50 +56,11 @@ predict(x_train)
 # ╔═╡ ca91c474-2d94-4540-ad2f-fe6c0cd88c6a
 loss(model,x,y) = mean(abs2.(model(x) .- y)); # MSE
 
-# ╔═╡ d2d46336-bfaf-451c-bc31-6259814f534f
-#=╠═╡
-loss(predict, x_train, y_train)
-  ╠═╡ =#
-
 # ╔═╡ 04643dec-7fda-4f21-9287-ac1fdc5837a5
 predict.weight, predict.bias
 
-# ╔═╡ 501ac28c-c1a3-4dca-88c0-c27b2f4b4b68
-#=╠═╡
-begin
-	# Training using the loss function and the training data
-	using Flux: train!
-	# with a pluggable optimiser -> classic gradient destent in this case
-	opt = Descent()
-	# training data
-	data = [(x_train, y_train)]
-end
-  ╠═╡ =#
-
-# ╔═╡ ba64cd49-a9d1-4007-bba9-79b2f4d801da
-#=╠═╡
-train!(loss, predict, data, opt)
-  ╠═╡ =#
-
-# ╔═╡ 8093c928-beeb-458d-9eea-262cd496dcc9
-#=╠═╡
-loss(predict, x_train, y_train)
-  ╠═╡ =#
-
 # ╔═╡ d95c7919-d16f-426e-88a1-a7d0889ba2bd
 predict.weight, predict.bias
-
-# ╔═╡ 2ccc2147-93df-44e3-a7c3-343482262f7d
-#=╠═╡
-for epoch in 1:200
-	train!(loss, predict, data, opt)
-end
-  ╠═╡ =#
-
-# ╔═╡ 856fc00b-a43f-41da-9f8d-7700b8dccdce
-#=╠═╡
-loss(predict, x_train, y_train)
-  ╠═╡ =#
 
 # ╔═╡ 6d648a36-11cd-4749-a4f8-7532ca550189
 predict.weight, predict.bias
@@ -103,9 +69,7 @@ predict.weight, predict.bias
 predict(x_test)
 
 # ╔═╡ 8046876d-4752-4d7d-a41b-a500a4dd944d
-#=╠═╡
 y_test
-  ╠═╡ =#
 
 # ╔═╡ 8146b87f-0b07-44ab-ae72-fe7b9bdafaed
 md"# 2. How Flux works: Gradients and Layers
@@ -126,6 +90,23 @@ begin
 	end
 end
 
+# ╔═╡ d2d46336-bfaf-451c-bc31-6259814f534f
+loss(predict, x_train, y_train)
+
+# ╔═╡ ba64cd49-a9d1-4007-bba9-79b2f4d801da
+train!(loss, predict, data, opt)
+
+# ╔═╡ 8093c928-beeb-458d-9eea-262cd496dcc9
+loss(predict, x_train, y_train)
+
+# ╔═╡ 2ccc2147-93df-44e3-a7c3-343482262f7d
+for epoch in 1:200
+	train!(loss, predict, data, opt)
+end
+
+# ╔═╡ 856fc00b-a43f-41da-9f8d-7700b8dccdce
+loss(predict, x_train, y_train)
+
 # ╔═╡ 1b256db9-ee74-4b9b-83b1-0d180e2382c0
 W
 
@@ -138,17 +119,13 @@ x, y = rand(5), rand(2) # Dummy data
 # ╔═╡ e3a5c048-7b08-4d04-b4af-8440cbcf80ad
 loss(x,y)
 
-# ╔═╡ 1de3a4f7-6153-4e87-ad05-dbc6423b4b3c
-# ╠═╡ disabled = true
+# ╔═╡ 7d97541f-4aaa-4da6-9abe-363edbdb3aa9
 #=╠═╡
-# To improve the prediction -> take the gradients of the loss with respect to W and b and perform gradient descent.
-using Flux
+gs = gradient(() -> loss(x,y), Flux.params(W,b)) # find the gradient of the loss function with respect to the parameters W and b.
   ╠═╡ =#
 
-# ╔═╡ 7d97541f-4aaa-4da6-9abe-363edbdb3aa9
-gs = gradient(() -> loss(x,y), Flux.params(W,b)) # find the gradient of the loss function with respect to the parameters W and b.
-
 # ╔═╡ 2ae874c3-ab79-44c3-9e50-fad3005fcfb9
+#=╠═╡
 begin
 	# Now that we have gradients, we can pull them out and update W to train the model.
 	W̄ = gs[W]
@@ -157,6 +134,7 @@ begin
 	
 	loss(x, y) 
 end
+  ╠═╡ =#
 
 # ╔═╡ 2d4d814e-6d5a-450f-a50a-900116847c4b
 md"The loss has decreased a little, meaning that our prediction x is closer to the target y. If we have some data we can already try training the model.
@@ -169,6 +147,18 @@ md"Summary:
 - gradient then computes how small changes in W and b would affect the value of loss. It does this through backpropagation, a standard technique in neural networks for propagating errors back through the network.
 - The result, gs, is a data structure containing the gradients of the loss with respect to each parameter in Flux.params(W, b). This tells you how to adjust W and b to decrease the loss, ideally leading to better model performance.
 "
+
+# ╔═╡ c3af0a7c-1a32-46d4-adb6-e483025fbbdf
+#=╠═╡
+using Flux
+  ╠═╡ =#
+
+# ╔═╡ 1de3a4f7-6153-4e87-ad05-dbc6423b4b3c
+# ╠═╡ disabled = true
+#=╠═╡
+# To improve the prediction -> take the gradients of the loss with respect to W and b and perform gradient descent.
+using Flux
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
