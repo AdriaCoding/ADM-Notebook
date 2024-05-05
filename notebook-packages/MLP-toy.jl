@@ -196,6 +196,150 @@ begin
 	plot!(1:length(pred_test), pred_test, label="Predicted test data")
 end
 
+# ╔═╡ dc5d0842-4990-427f-9fb5-f4adef60fdad
+md"## Adapting the model: 
+### 2 time series input - 2 outputs, 1 for each time series"
+
+# ╔═╡ e67f5262-3649-49b7-b842-3f7022469d34
+a = Float32[2, 4, 6, 8, 6, 4, 3, 3, 5, 7]
+
+# ╔═╡ 093283e7-681c-4d25-a621-d74ca4b5e094
+b = Float32[2, 2, 3, 3, 5, 7, 5, 3, 1, 2]
+
+# ╔═╡ 8b90eb20-8acd-4913-8514-adf854dc700a
+X_a, Y_a = create_dataset(a, lookback)
+
+# ╔═╡ bf6b3a71-2680-4279-abb1-767dda38fe6a
+X_b, Y_b = create_dataset(b, lookback)
+
+# ╔═╡ 133e7a11-ef3b-473a-9900-561d537ab9d4
+# as before but now concatenating the b series corresponding column input for each of the columns -> vertical concatenation 
+X_ab = vcat(X_a, X_b)
+
+# ╔═╡ 67a153de-d4ce-4e64-a426-eba86551c177
+Y_ab = vcat(Y_a, Y_b)
+
+# ╔═╡ 37e9059f-f0fa-4c22-a707-37cc68b23419
+# model
+model_ab = Chain(
+	Dense(lookback*2, 15, relu),
+	Dense(15,2)
+)
+
+# ╔═╡ 92dfde86-f396-4f1d-a54a-83b6aeb725f0
+ps_ab = Flux.params(model_ab)
+
+# ╔═╡ 7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+loss_ab(x,y) = Flux.Losses.mse(model_ab(x), y) 
+# MSE between the model predicted value (ŷ = model(x)) and the real value: y
+
+# ╔═╡ 81812092-33a3-49a2-89ed-6b79ccc685bc
+#optimizer = Descent(0.01)
+optimizer_ab = ADAM(0.01)
+
+# ╔═╡ 38b3a708-4bfc-44c7-805f-82d505f8ced3
+data_pair_ab = [(X_ab,Y_ab)]
+
+# ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
+begin
+		epochs_ab = 100
+		for epoch in 1:epochs
+			Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
+			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
+		end
+end
+
+# ╔═╡ eca2a9e8-24ea-4b80-a1c1-3f1c93030f21
+# Testing 
+# [6, 8, 6] - 4 
+# [3, 3, 5] - 7
+test_sequence = [8, 6, 4, 3, 5, 7] # 3, 5
+
+# ╔═╡ 554b863c-439c-41cb-89dd-ab0685e71116
+model_ab(test_sequence)
+
+# ╔═╡ e1ce5c16-c38a-47d9-a78a-a0e8552b0178
+md"Testing the model"
+
+# ╔═╡ 276d7f5d-43ff-48db-b364-8cb6275d6ed0
+md"Assume we have the following dataset"
+
+# ╔═╡ 03fa0548-3ad4-43f7-a8c8-be73402e8879
+test_data_a = Float32[5, 6, 4, 3, 5]
+
+# ╔═╡ 38fea5b1-27e4-49c9-b521-6ab92f6b0de3
+test_data_b = Float32[3, 2, 1, 3, 5]
+
+# ╔═╡ c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
+pred_test_a = []
+
+# ╔═╡ a49f2142-5963-4a8c-abd5-51acbbee3cba
+pred_test_b = []
+
+# ╔═╡ 3d6662ed-8570-46c8-8f8d-abe92db8fbda
+input_vec_a = []
+
+# ╔═╡ 0e616447-9fe8-4747-bcda-1622dd22b890
+input_vec_b = []
+
+# ╔═╡ 1ac927cb-eff5-4cb4-ab90-db8028972e39
+# fill until the w (lookback) size, initially all from the last w training data elements
+for i in length(a)-lookback+1:length(a)
+	push!(input_vec_a, a[i])
+	push!(input_vec_b, b[i])
+end
+
+# ╔═╡ 1935dca5-977f-4372-a434-5ee8641f7604
+input_vec_a
+
+# ╔═╡ 37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
+input_vec_b
+
+# ╔═╡ 3a745c16-4dad-4b23-b12e-4a2d45d8c061
+for i in 1:length(test_data_a)
+	# predict each of the test outputs, both for a and b
+	println(input_vec_a)
+	println(input_vec_b)
+	# put together the two vectors to do the prediction
+	input_vec_ab = vcat(input_vec_a, input_vec_b)
+	println(input_vec_ab)
+	output_ab = model_ab(input_vec_ab)
+	println(output_ab)
+	# The first predicted value is for the a series and the second for the b series
+	push!(pred_test_a, output_ab[1])
+	push!(pred_test_b, output_ab[2])
+	# prepare the new following input vector (size of this vector = lookback / window size)
+	for w in 1:lookback-1
+		input_vec_a[w] = input_vec_a[w+1]
+		input_vec_b[w] = input_vec_b[w+1]
+	end
+	input_vec_a[lookback] = output_ab[1]
+	input_vec_b[lookback] = output_ab[2]
+end
+
+# ╔═╡ da90cfbb-a2b4-4748-beb1-f03cd87735a8
+pred_test_a
+
+# ╔═╡ a5f17f65-6f3e-46f8-b154-d7dad9c20848
+pred_test_b
+
+# ╔═╡ a1b9c50c-7756-4c83-be9f-15faf291773d
+Flux.Losses.mse(test_data_a, pred_test_a) + Flux.Losses.mse(test_data_b, pred_test_b)
+
+# ╔═╡ 30c02617-40d7-490b-b50e-0d748bc60090
+Flux.Losses.mse(test_data_a, pred_test_a)
+
+# ╔═╡ abb8af77-a0c2-45ee-9898-4e12152afc45
+Flux.Losses.mse(test_data_b, pred_test_b)
+
+# ╔═╡ 41a37d06-5599-4ab8-af75-4059333ea9b1
+begin
+	plot(1:length(test_data_a), test_data_a, label="Real test data a", title="Time Series Plot", xaxis="Date", yaxis="Value", legend=:top, ylim=(0,10))
+	plot!(1:length(pred_test_a), pred_test_a, label="Predicted test data a")
+	plot!(1:length(test_data_b), test_data_b, label="Real test data b")
+	plot!(1:length(pred_test_b), pred_test_b, label="Predicted test data b")
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -1690,5 +1834,38 @@ version = "1.4.1+1"
 # ╠═3acac6ba-7452-409c-b983-08d092c9fe1b
 # ╟─13d68258-aecb-4562-a5c8-8339e22796ea
 # ╠═b41b72ee-7e5f-4068-8dad-1be5f2136f7c
+# ╟─dc5d0842-4990-427f-9fb5-f4adef60fdad
+# ╠═e67f5262-3649-49b7-b842-3f7022469d34
+# ╠═093283e7-681c-4d25-a621-d74ca4b5e094
+# ╠═8b90eb20-8acd-4913-8514-adf854dc700a
+# ╠═bf6b3a71-2680-4279-abb1-767dda38fe6a
+# ╠═133e7a11-ef3b-473a-9900-561d537ab9d4
+# ╠═67a153de-d4ce-4e64-a426-eba86551c177
+# ╠═37e9059f-f0fa-4c22-a707-37cc68b23419
+# ╠═92dfde86-f396-4f1d-a54a-83b6aeb725f0
+# ╠═7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+# ╠═81812092-33a3-49a2-89ed-6b79ccc685bc
+# ╠═38b3a708-4bfc-44c7-805f-82d505f8ced3
+# ╠═1fb5ba25-e9bd-418c-8606-52db645bf290
+# ╠═eca2a9e8-24ea-4b80-a1c1-3f1c93030f21
+# ╠═554b863c-439c-41cb-89dd-ab0685e71116
+# ╟─e1ce5c16-c38a-47d9-a78a-a0e8552b0178
+# ╟─276d7f5d-43ff-48db-b364-8cb6275d6ed0
+# ╠═03fa0548-3ad4-43f7-a8c8-be73402e8879
+# ╠═38fea5b1-27e4-49c9-b521-6ab92f6b0de3
+# ╠═c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
+# ╠═a49f2142-5963-4a8c-abd5-51acbbee3cba
+# ╠═3d6662ed-8570-46c8-8f8d-abe92db8fbda
+# ╠═0e616447-9fe8-4747-bcda-1622dd22b890
+# ╠═1ac927cb-eff5-4cb4-ab90-db8028972e39
+# ╠═1935dca5-977f-4372-a434-5ee8641f7604
+# ╠═37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
+# ╠═3a745c16-4dad-4b23-b12e-4a2d45d8c061
+# ╠═da90cfbb-a2b4-4748-beb1-f03cd87735a8
+# ╠═a5f17f65-6f3e-46f8-b154-d7dad9c20848
+# ╠═a1b9c50c-7756-4c83-be9f-15faf291773d
+# ╠═30c02617-40d7-490b-b50e-0d748bc60090
+# ╠═abb8af77-a0c2-45ee-9898-4e12152afc45
+# ╠═41a37d06-5599-4ab8-af75-4059333ea9b1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

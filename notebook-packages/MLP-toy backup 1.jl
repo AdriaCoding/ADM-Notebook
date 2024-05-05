@@ -104,15 +104,6 @@ data_pair = [(X,Y)]
 md"
 **In Flux, by default, each column is treated as a separate data point in matrix inputs, so your target data should likely be a matrix with the same setup.**"
 
-# ╔═╡ 14b8e487-de0c-41c4-b91c-5c1414fb3472
-begin
-		epochs = 100
-		for epoch in 1:epochs
-			Flux.train!(loss, ps, data_pair, optimizer)
-			println("Epoch $epoch, Loss: $(loss(X,Y))")
-		end
-end
-
 # ╔═╡ cc902406-212f-4e13-9509-6c494c5635ea
 sequence = [3,3,5] # 7
 
@@ -194,6 +185,77 @@ md"Plotting the predictions wrt the real values - test"
 begin
 	plot(1:length(test_data), test_data, label="Real test data", title="Time Series Plot", xaxis="Date", yaxis="Value", legend=:top, ylim=(0,10))
 	plot!(1:length(pred_test), pred_test, label="Predicted test data")
+end
+
+# ╔═╡ dc5d0842-4990-427f-9fb5-f4adef60fdad
+md"## Adapting the model: 
+### 2 time series input - 2 outputs, 1 for each time series"
+
+# ╔═╡ e67f5262-3649-49b7-b842-3f7022469d34
+a = Float32[2, 4, 6, 8, 6, 4, 3, 3, 5, 7]
+
+# ╔═╡ 093283e7-681c-4d25-a621-d74ca4b5e094
+b = Float32[2, 2, 3, 3, 5, 7, 5, 3, 1, 2]
+
+# ╔═╡ 8b90eb20-8acd-4913-8514-adf854dc700a
+X_a, Y_a = create_dataset(a, lookback)
+
+# ╔═╡ bf6b3a71-2680-4279-abb1-767dda38fe6a
+X_b, Y_b = create_dataset(b, lookback)
+
+# ╔═╡ 133e7a11-ef3b-473a-9900-561d537ab9d4
+# as before but now concatenating the b series corresponding column input for each of the columns -> vertical concatenation 
+X_ab = vcat(X_a, X_b)
+
+# ╔═╡ 67a153de-d4ce-4e64-a426-eba86551c177
+Y_ab = vcat(Y_a, Y_b)
+
+# ╔═╡ 37e9059f-f0fa-4c22-a707-37cc68b23419
+# model
+model_ab = Chain(
+	Dense(lookback*2, 15, relu),
+	Dense(15,2)
+)
+
+# ╔═╡ 92dfde86-f396-4f1d-a54a-83b6aeb725f0
+ps_ab = Flux.params(model_ab)
+
+# ╔═╡ 7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+loss_ab(x,y) = Flux.Losses.mse(model_ab(x), y) 
+# MSE between the model predicted value (ŷ = model(x)) and the real value: y
+
+# ╔═╡ 81812092-33a3-49a2-89ed-6b79ccc685bc
+#optimizer = Descent(0.01)
+optimizer_ab = ADAM(0.01)
+
+# ╔═╡ 38b3a708-4bfc-44c7-805f-82d505f8ced3
+data_pair_ab = [(X_ab,Y_ab)]
+
+# ╔═╡ eca2a9e8-24ea-4b80-a1c1-3f1c93030f21
+# Testing 
+# [6, 8, 6] - 4 
+# [3, 3, 5] - 7
+test_sequence = [8, 6, 4, 3, 5, 7] # 3, 5
+
+# ╔═╡ 554b863c-439c-41cb-89dd-ab0685e71116
+model_ab(test_sequence)
+
+# ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
+begin
+		epochs = 100
+		for epoch in 1:epochs
+			Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
+			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
+		end
+end
+
+# ╔═╡ 14b8e487-de0c-41c4-b91c-5c1414fb3472
+begin
+		epochs = 100
+		for epoch in 1:epochs
+			Flux.train!(loss, ps, data_pair, optimizer)
+			println("Epoch $epoch, Loss: $(loss(X,Y))")
+		end
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1690,5 +1752,20 @@ version = "1.4.1+1"
 # ╠═3acac6ba-7452-409c-b983-08d092c9fe1b
 # ╟─13d68258-aecb-4562-a5c8-8339e22796ea
 # ╠═b41b72ee-7e5f-4068-8dad-1be5f2136f7c
+# ╟─dc5d0842-4990-427f-9fb5-f4adef60fdad
+# ╠═e67f5262-3649-49b7-b842-3f7022469d34
+# ╠═093283e7-681c-4d25-a621-d74ca4b5e094
+# ╠═8b90eb20-8acd-4913-8514-adf854dc700a
+# ╠═bf6b3a71-2680-4279-abb1-767dda38fe6a
+# ╠═133e7a11-ef3b-473a-9900-561d537ab9d4
+# ╠═67a153de-d4ce-4e64-a426-eba86551c177
+# ╠═37e9059f-f0fa-4c22-a707-37cc68b23419
+# ╠═92dfde86-f396-4f1d-a54a-83b6aeb725f0
+# ╠═7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+# ╠═81812092-33a3-49a2-89ed-6b79ccc685bc
+# ╠═38b3a708-4bfc-44c7-805f-82d505f8ced3
+# ╠═1fb5ba25-e9bd-418c-8606-52db645bf290
+# ╠═eca2a9e8-24ea-4b80-a1c1-3f1c93030f21
+# ╠═554b863c-439c-41cb-89dd-ab0685e71116
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

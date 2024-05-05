@@ -257,4 +257,67 @@ e.g. window size = 3: [2,4,6][8], [4,6,8][6], [6,8,6][4]...
 
 ...
 
-## 
+## Our model
+
+Okay, so, from all the mentioned models about what are we going to do?
+
+We suggest on doing a model based on the Multiple Parallel Series / Multivariate forecasting,
+that is the one that having as input:
+
+`[(a1,b1), (a2,b2), (a3,b3),..., (an, bn)]` and we want to predict --> (a_n+1, b_n+1) - the next value for each of the series (a and b series).
+
+And, among the 2 approaches:
+- (1) Predict with 1 single MLP. ~*Assuming a and b are dependent*~
+- (2) Predict each output series with a different MLP (1 per series). ~*Assuming a and b are independent*~
+
+### 1. 1 single MLP model predictor
+
+We are going to take the first one, since we understand that this way the model
+learns that both time series `a` and `b` are relationed, and that the outputs,
+although different depend on a joint input [(a1,b1), (a2,b2), ...,(aw,bw)].
+
+TODO: check if this really is the case when using a single MLP for both series output.
+
+#### Model
+
+- **Window-based**: Training with the window division of the series approach: that is, 
+the learning is based on the idea of providing a windowed slice of the series as 
+input (e.g. w=3, input:[(a1,b1), (a2,b2), (a3,b3)] we predict ŷ = (a4,b4) to
+match against y = (a4,b4)).
+
+    - TODO: Test different window sizes. 
+
+- **Testing**: Building of the test predicted output set ŷ_test, to match against
+the test output set. *How?*: Assuming we do not have the real test data to do
+the predictions to obtain all the test output values.
+
+Example: *for the lynx and hare dataset*
+
+Assume we have:
+
+- |Train| = 45, |Test| = 13
+- window size w = 3
+
+So, first we build the model (weights and bias fit process of the MLP).
+Then we will try to check the model against the test data (not used for the 
+training process).
+For that, we will predict all the test values in the following manner:
+
+(we need to predict: x_46 until x_58)
+
+- [x_43, x_44, x_45] -> x_46'
+- [x_44, x_45, x_46'] -> x_47'
+- [x_45, x_46', x_47'] -> x_48'
+- [x_46', x_47', x_48'] -> x_49'
+- ...
+- [x_55', x_56', x_57'] -> x_58'
+
+**Note that:** we are not using the real test data values to get the prediction
+of a test output value, but the self-predicted values.
+
+Once we have this predicted |test| output set, we compare it against the real
+|test| dataset to obtain the error and measure the performance.
+
+
+
+
