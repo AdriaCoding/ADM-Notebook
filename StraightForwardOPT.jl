@@ -37,7 +37,7 @@ function loss(newp)
     loss = sum(abs2, sol .- data)
     return loss, sol
 end
-
+pl
 callback = function (p, l, sol)
     display(l)
     plt = plot(sol, ylim = (0, 150), label = "Current Prediction")
