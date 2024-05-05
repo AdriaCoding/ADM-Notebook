@@ -104,15 +104,6 @@ data_pair = [(X,Y)]
 md"
 **In Flux, by default, each column is treated as a separate data point in matrix inputs, so your target data should likely be a matrix with the same setup.**"
 
-# ╔═╡ 14b8e487-de0c-41c4-b91c-5c1414fb3472
-begin
-		epochs = 100
-		for epoch in 1:epochs
-			Flux.train!(loss, ps, data_pair, optimizer)
-			println("Epoch $epoch, Loss: $(loss(X,Y))")
-		end
-end
-
 # ╔═╡ cc902406-212f-4e13-9509-6c494c5635ea
 sequence = [3,3,5] # 7
 
@@ -240,15 +231,6 @@ optimizer_ab = ADAM(0.01)
 # ╔═╡ 38b3a708-4bfc-44c7-805f-82d505f8ced3
 data_pair_ab = [(X_ab,Y_ab)]
 
-# ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
-begin
-		epochs_ab = 100
-		for epoch in 1:epochs
-			Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
-			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
-		end
-end
-
 # ╔═╡ eca2a9e8-24ea-4b80-a1c1-3f1c93030f21
 # Testing 
 # [6, 8, 6] - 4 
@@ -258,86 +240,22 @@ test_sequence = [8, 6, 4, 3, 5, 7] # 3, 5
 # ╔═╡ 554b863c-439c-41cb-89dd-ab0685e71116
 model_ab(test_sequence)
 
-# ╔═╡ e1ce5c16-c38a-47d9-a78a-a0e8552b0178
-md"Testing the model"
-
-# ╔═╡ 276d7f5d-43ff-48db-b364-8cb6275d6ed0
-md"Assume we have the following dataset"
-
-# ╔═╡ 03fa0548-3ad4-43f7-a8c8-be73402e8879
-test_data_a = Float32[5, 6, 4, 3, 5]
-
-# ╔═╡ 38fea5b1-27e4-49c9-b521-6ab92f6b0de3
-test_data_b = Float32[3, 2, 1, 3, 5]
-
-# ╔═╡ c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
-pred_test_a = []
-
-# ╔═╡ a49f2142-5963-4a8c-abd5-51acbbee3cba
-pred_test_b = []
-
-# ╔═╡ 3d6662ed-8570-46c8-8f8d-abe92db8fbda
-input_vec_a = []
-
-# ╔═╡ 0e616447-9fe8-4747-bcda-1622dd22b890
-input_vec_b = []
-
-# ╔═╡ 1ac927cb-eff5-4cb4-ab90-db8028972e39
-# fill until the w (lookback) size, initially all from the last w training data elements
-for i in length(a)-lookback+1:length(a)
-	push!(input_vec_a, a[i])
-	push!(input_vec_b, b[i])
-end
-
-# ╔═╡ 1935dca5-977f-4372-a434-5ee8641f7604
-input_vec_a
-
-# ╔═╡ 37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
-input_vec_b
-
-# ╔═╡ 3a745c16-4dad-4b23-b12e-4a2d45d8c061
-for i in 1:length(test_data_a)
-	# predict each of the test outputs, both for a and b
-	println(input_vec_a)
-	println(input_vec_b)
-	# put together the two vectors to do the prediction
-	input_vec_ab = vcat(input_vec_a, input_vec_b)
-	println(input_vec_ab)
-	output_ab = model_ab(input_vec_ab)
-	println(output_ab)
-	# The first predicted value is for the a series and the second for the b series
-	push!(pred_test_a, output_ab[1])
-	push!(pred_test_b, output_ab[2])
-	# prepare the new following input vector (size of this vector = lookback / window size)
-	for w in 1:lookback-1
-		input_vec_a[w] = input_vec_a[w+1]
-		input_vec_b[w] = input_vec_b[w+1]
-	end
-	input_vec_a[lookback] = output_ab[1]
-	input_vec_b[lookback] = output_ab[2]
-end
-
-# ╔═╡ da90cfbb-a2b4-4748-beb1-f03cd87735a8
-pred_test_a
-
-# ╔═╡ a5f17f65-6f3e-46f8-b154-d7dad9c20848
-pred_test_b
-
-# ╔═╡ a1b9c50c-7756-4c83-be9f-15faf291773d
-Flux.Losses.mse(test_data_a, pred_test_a) + Flux.Losses.mse(test_data_b, pred_test_b)
-
-# ╔═╡ 30c02617-40d7-490b-b50e-0d748bc60090
-Flux.Losses.mse(test_data_a, pred_test_a)
-
-# ╔═╡ abb8af77-a0c2-45ee-9898-4e12152afc45
-Flux.Losses.mse(test_data_b, pred_test_b)
-
-# ╔═╡ 41a37d06-5599-4ab8-af75-4059333ea9b1
+# ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
 begin
-	plot(1:length(test_data_a), test_data_a, label="Real test data a", title="Time Series Plot", xaxis="Date", yaxis="Value", legend=:top, ylim=(0,10))
-	plot!(1:length(pred_test_a), pred_test_a, label="Predicted test data a")
-	plot!(1:length(test_data_b), test_data_b, label="Real test data b")
-	plot!(1:length(pred_test_b), pred_test_b, label="Predicted test data b")
+		epochs = 100
+		for epoch in 1:epochs
+			Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
+			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
+		end
+end
+
+# ╔═╡ 14b8e487-de0c-41c4-b91c-5c1414fb3472
+begin
+		epochs = 100
+		for epoch in 1:epochs
+			Flux.train!(loss, ps, data_pair, optimizer)
+			println("Epoch $epoch, Loss: $(loss(X,Y))")
+		end
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1849,23 +1767,5 @@ version = "1.4.1+1"
 # ╠═1fb5ba25-e9bd-418c-8606-52db645bf290
 # ╠═eca2a9e8-24ea-4b80-a1c1-3f1c93030f21
 # ╠═554b863c-439c-41cb-89dd-ab0685e71116
-# ╟─e1ce5c16-c38a-47d9-a78a-a0e8552b0178
-# ╟─276d7f5d-43ff-48db-b364-8cb6275d6ed0
-# ╠═03fa0548-3ad4-43f7-a8c8-be73402e8879
-# ╠═38fea5b1-27e4-49c9-b521-6ab92f6b0de3
-# ╠═c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
-# ╠═a49f2142-5963-4a8c-abd5-51acbbee3cba
-# ╠═3d6662ed-8570-46c8-8f8d-abe92db8fbda
-# ╠═0e616447-9fe8-4747-bcda-1622dd22b890
-# ╠═1ac927cb-eff5-4cb4-ab90-db8028972e39
-# ╠═1935dca5-977f-4372-a434-5ee8641f7604
-# ╠═37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
-# ╠═3a745c16-4dad-4b23-b12e-4a2d45d8c061
-# ╠═da90cfbb-a2b4-4748-beb1-f03cd87735a8
-# ╠═a5f17f65-6f3e-46f8-b154-d7dad9c20848
-# ╠═a1b9c50c-7756-4c83-be9f-15faf291773d
-# ╠═30c02617-40d7-490b-b50e-0d748bc60090
-# ╠═abb8af77-a0c2-45ee-9898-4e12152afc45
-# ╠═41a37d06-5599-4ab8-af75-4059333ea9b1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
