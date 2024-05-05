@@ -1,23 +1,26 @@
-using ComponentArrays, Lux, DiffEqFlux, OrdinaryDiffEq, Optimization, OptimizationOptimJL,
-    OptimizationOptimisers, Random, Plots
+using ComponentArrays, Lux, DiffEqFlux, OrdinaryDiffEq
+using Optimization, OptimizationOptimJL, OptimizationOptimisers
+using Random: default_rng; using CSV: read
+using Plots, DataFrames
 
-rng = Random.default_rng()
-u0 = Float32[2.0; 0.0]
-datasize = 30
-tspan = (0.0f0, 1.5f0)
-tsteps = range(tspan[1], tspan[2]; length = datasize)
+## Data handling
+rawdata = read("datasets/Leigh1968_harelynx.csv", DataFrame)
+df = mapcols(x -> Float64.(x .÷ 1000), rawdata[:,[:hare, :lynx]])
+df_train = df[1:45,:]
+true_values = transpose(Matrix(df_train))
 
-function trueODEfunc(du, u, p, t)
-    true_A = [-0.1 2.0; -2.0 -0.1]
-    du .= ((u .^ 3)'true_A)'
-end
+## Problem conditions
+rng = default_rng()
+u0 = Float32[df_train.hare[1], df_train.lynx[1]]
+tspan = Float32.((0.0, size(df_train)[1]-1))
+train_years = rawdata.year[1:45]
 
-prob_trueode = ODEProblem(trueODEfunc, u0, tspan)
-ode_data = Array(solve(prob_trueode, Tsit5(); saveat = tsteps))
+## Define flux Neural Net
+NN = Chain(Dense(2, 5, tanh_fast), Dense(5, 2))
+p, st = Lux.setup(rng, NN)
 
-dudt2 = Chain(x -> x .^ 3, Dense(2, 50, tanh), Dense(50, 2))
-p, st = Lux.setup(rng, dudt2)
-prob_neuralode = NeuralODE(dudt2, tspan, Tsit5(); saveat = tsteps)
+## 'NeuralODE' model
+prob_neuralode = NeuralODE(NN, tspan, Tsit5(); saveat = 1)
 
 function predict_neuralode(p)
     Array(prob_neuralode(u0, p, st)[1])
@@ -25,7 +28,7 @@ end
 
 function loss_neuralode(p)
     pred = predict_neuralode(p)
-    loss = sum(abs2, ode_data .- pred)
+    loss = sum(abs2, true_values .- pred)
     return loss, pred
 end
 
@@ -35,9 +38,11 @@ callback = function (p, l, pred; doplot = true)
     println(l)
     # plot current prediction against data
     if doplot
-        plt = scatter(tsteps, ode_data[1, :]; label = "data")
-        scatter!(plt, tsteps, pred[1, :]; label = "prediction")
-        display(plot(plt))
+        plt = plot(train_years, transpose(pred), labels=["x(t)" "y(t)"])
+        scatter!(plt, train_years, true_values[1, :]; label = "hare")
+        scatter!(plt, train_years, true_values[2, :]; label = "lynx")
+
+        display(plt)
     end
     return false
 end
