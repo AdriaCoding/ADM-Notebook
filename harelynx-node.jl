@@ -306,31 +306,26 @@ plot_trajectory( predict_neuralode(result_neuralode2.u))
 length(result_neuralode2.u.layer_1[:])
   ╠═╡ =#
 
-# ╔═╡ b3febfd2-21cb-44d1-ba58-98ee7f8f2e58
-#=╠═╡
-optprob = Optimization.OptimizationProblem(optf, pguess)
-  ╠═╡ =#
-
-# ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
+# ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
 #=╠═╡
 begin
-	true_values = transpose(Matrix(df))
-	function loss(newp)
-	    newprob = remake(prob, p = newp)
-	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
-		
-	    loss = try sum(abs2, sol .- true_values) 
-		catch e
-				return Inf, sol
-		end
-		return loss, sol  
-	end
+	adtype = Optimization.AutoZygote()
+	
+	optf = Optimization.OptimizationFunction((x, p) -> loss_neuralode(x), adtype)
+	optprob = Optimization.OptimizationProblem(optf, pinit)
+	
 end
   ╠═╡ =#
 
 # ╔═╡ 7c37627b-f771-4084-9163-08e361723bbc
 #=╠═╡
 optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
+  ╠═╡ =#
+
+# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
+# ╠═╡ disabled = true
+#=╠═╡
+adtype = Optimization.AutoForwardDiff()
   ╠═╡ =#
 
 # ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
@@ -343,6 +338,20 @@ begin
 	    return loss, pred
 	end
 end
+  ╠═╡ =#
+
+# ╔═╡ 3cd69d7c-dc4b-4fa6-a6ba-db5c96209bb4
+#=╠═╡
+callback = function (p, l, pred)
+    println(l)
+    # plot current prediction against data
+    return false
+end
+  ╠═╡ =#
+
+# ╔═╡ b3febfd2-21cb-44d1-ba58-98ee7f8f2e58
+#=╠═╡
+optprob = Optimization.OptimizationProblem(optf, pguess)
   ╠═╡ =#
 
 # ╔═╡ 90b70812-4f93-4950-b253-60d3b4d09949
@@ -364,30 +373,21 @@ callback = function (p, l, sol)
 end
   ╠═╡ =#
 
-# ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
+# ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
 #=╠═╡
 begin
-	adtype = Optimization.AutoZygote()
-	
-	optf = Optimization.OptimizationFunction((x, p) -> loss_neuralode(x), adtype)
-	optprob = Optimization.OptimizationProblem(optf, pinit)
-	
+	true_values = transpose(Matrix(df))
+	function loss(newp)
+	    newprob = remake(prob, p = newp)
+	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
+		
+	    loss = try sum(abs2, sol .- true_values) 
+		catch e
+				return Inf, sol
+		end
+		return loss, sol  
+	end
 end
-  ╠═╡ =#
-
-# ╔═╡ 3cd69d7c-dc4b-4fa6-a6ba-db5c96209bb4
-#=╠═╡
-callback = function (p, l, pred)
-    println(l)
-    # plot current prediction against data
-    return false
-end
-  ╠═╡ =#
-
-# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
-# ╠═╡ disabled = true
-#=╠═╡
-adtype = Optimization.AutoForwardDiff()
   ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
