@@ -295,7 +295,7 @@ Example: *for the lynx and hare dataset*
 
 Assume we have:
 
-- |Train| = 45, |Test| = 13
+- |Train| = 45, |Test| = 12
 - window size w = 3
 
 So, first we build the model (weights and bias fit process of the MLP).
@@ -303,20 +303,23 @@ Then we will try to check the model against the test data (not used for the
 training process).
 For that, we will predict all the test values in the following manner:
 
-(we need to predict: x_46 until x_58)
+(we need to predict: x_46 until x_57)
 
 - [x_43, x_44, x_45] -> x_46'
 - [x_44, x_45, x_46'] -> x_47'
 - [x_45, x_46', x_47'] -> x_48'
 - [x_46', x_47', x_48'] -> x_49'
 - ...
-- [x_55', x_56', x_57'] -> x_58'
+- [x_54', x_55', x_56'] -> x_57'
 
 **Note that:** we are not using the real test data values to get the prediction
 of a test output value, but the self-predicted values.
 
 Once we have this predicted |test| output set, we compare it against the real
 |test| dataset to obtain the error and measure the performance.
+
+
+
 
 
 
