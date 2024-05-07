@@ -169,7 +169,7 @@ md"**1. MLP definition**
 # ╔═╡ 49884347-9130-40cc-a845-57da66e85718
 # Number of neurons in the hidden layer
 # TODO: Vary this parameter
-hiddenNeurons = 15
+hiddenNeurons = 25
 
 # ╔═╡ 37e9059f-f0fa-4c22-a707-37cc68b23419
 # model
@@ -188,7 +188,16 @@ MSE between the model predicted values (`ŷ1`, `ŷ2` = model(x)) and the target 
 "
 
 # ╔═╡ 7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+# ╠═╡ disabled = true
+#=╠═╡
 loss_ab(x,y) = Flux.Losses.mse(model_ab(x), y) 
+  ╠═╡ =#
+
+# ╔═╡ 1fcb4488-b46a-47cf-83b8-85a97e052423
+function loss_ab(x,y) 
+	pred = model_ab(x)
+	return mean((pred .- y).^2)
+end
 
 # ╔═╡ 6753be48-af78-42aa-9f0d-028498a3bcd3
 md"**3. Optimizer**  
@@ -197,7 +206,7 @@ md"**3. Optimizer**
 - More advanced optimizers: ADAM (ADaptive Moment Estimation)"
 
 # ╔═╡ 81812092-33a3-49a2-89ed-6b79ccc685bc
-#optimizer = Descent(0.01)
+#optimizer_ab = Descent(0.01)
 optimizer_ab = ADAM(0.01)
 
 # ╔═╡ 38b3a708-4bfc-44c7-805f-82d505f8ced3
@@ -210,7 +219,7 @@ TODO: Variate the # of epochs"
 
 # ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
 begin
-		epochs = 100
+		epochs = 500
 		for epoch in 1:epochs
 			Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
 			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
@@ -2307,7 +2316,7 @@ version = "3.5.0+0"
 # ╟─21ea978e-0c12-4eb0-9cf2-feb80f69ddbe
 # ╠═7e98f6fc-3b5c-4fab-b0bd-e64c5721ac49
 # ╟─e209ccec-72dc-4eb1-92a5-0ee0a5953074
-# ╠═4670ce99-3ca0-4ff9-ab53-c3462a193d28
+# ╟─4670ce99-3ca0-4ff9-ab53-c3462a193d28
 # ╠═05c79af6-d9bb-4804-ac4d-b7398500e318
 # ╟─d32f65d6-ddb1-44c0-8e81-00ba979cf850
 # ╠═42194c0b-0329-48ca-b0ba-8b14c38367de
@@ -2317,12 +2326,13 @@ version = "3.5.0+0"
 # ╠═133e7a11-ef3b-473a-9900-561d537ab9d4
 # ╠═67a153de-d4ce-4e64-a426-eba86551c177
 # ╟─d44f537b-264d-4a5d-985a-f246ca12b75b
-# ╟─96017ab0-367b-49fe-9ebe-9963aca2cbf8
+# ╠═96017ab0-367b-49fe-9ebe-9963aca2cbf8
 # ╠═49884347-9130-40cc-a845-57da66e85718
 # ╠═37e9059f-f0fa-4c22-a707-37cc68b23419
 # ╠═92dfde86-f396-4f1d-a54a-83b6aeb725f0
 # ╟─bb8b1da2-2fe1-4657-a473-8d19e0bb3e22
 # ╠═7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+# ╠═1fcb4488-b46a-47cf-83b8-85a97e052423
 # ╟─6753be48-af78-42aa-9f0d-028498a3bcd3
 # ╠═81812092-33a3-49a2-89ed-6b79ccc685bc
 # ╠═38b3a708-4bfc-44c7-805f-82d505f8ced3
