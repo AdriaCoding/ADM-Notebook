@@ -18,7 +18,7 @@ md"## Dataset preparation"
 
 # ╔═╡ 5aa263f7-fb27-43f2-abe9-733140d8a0ca
 md"#### Load the dataset 
-[Hare & Lynx dataset](https://gist.github.com/michaelosthege/27315631c1aedbe55f5affbccabef1ca), a time series dataset of the population of two species; Hare and Lynx in a specific area."
+[Hare & Lynx dataset](https://gist.github.com/michaelosthege/27315631c1aedbe55f5affbccabef1ca), a time series dataset of the population of two species; Hudson Bay company Lynx-Hare dataset from Leigh 1968, parsed from paper copy [http://katalog.ub.uni-heidelberg.de/titel/66489211](http://katalog.ub.uni-heidelberg.de/titel/66489211)"
 
 # ╔═╡ e920cd2f-c996-4e67-81ab-5e98fb17d386
 rawdata = CSV.read("../datasets/Leigh1968_harelynx.csv", DataFrame)
@@ -53,7 +53,7 @@ begin
 end
 
 # ╔═╡ e209ccec-72dc-4eb1-92a5-0ee0a5953074
-md"## Model explanation 
+md"## The MLP Model
 
 The built model was developed following the [MLP time series forecasting tutorial](https://machinelearningmastery.com/how-to-develop-multilayer-perceptron-models-for-time-series-forecasting/). 
 Based on this we developed a *Multiple Parallel Series / Multivariate forecasting MLP model*.
@@ -63,11 +63,13 @@ For doing this we can follow two different approaches:
 - (1) Predict with 1 single MLP. ~*Assuming a and b are dependent*~
 - (2) Predict each output series with a different MLP (1 per series). ~*Assuming a and b are independent*~
 
-In particular, we are going to follow the 1st approach, since we understand that this way the model learns that both time series `a` and `b` are relationed, and that the outputs, although different depend on a joint input [(a1,b1), (a2,b2), ...,(aw,bw)].
+In particular, we are going to follow the 1st approach, since we understand that this way the model learns that both time series `a` and `b` are relationed, and that the outputs, although different, depend on a joint input [(a1,b1), (a2,b2), ...,(aw,bw)].
 
 ### Window-based
 
 Another important aspect that we do in our model is to follow a window based approach. That is, the input of the MLP is a windowed time series of size `w`: `[(a1,b1), (a2,b2), ...,(aw,bw)]` (e.g. w=3, input:[(a1,b1), (a2,b2), (a3,b3)] and we have as output (a'4,b'4)).
+
+**TODO: Poner dibujito de la estructura del MLP**
 
 This way, we make that a certain prediction only depends on the last `w` values of the time series; which makes sense to be like this, since *what does it matter the number of hares in 1860 when trying to predict the number of hares in 1900?*
 
@@ -76,24 +78,25 @@ Therefore, the challenge here is to select a proper window size `w`.
 
 # ╔═╡ 4670ce99-3ca0-4ff9-ab53-c3462a193d28
 md"#### Preparing the training data
-*Create customised train datasets, in the input format we wanted (windowed), to perform the training of the MLP.*  
+*Create customised train datasets in the input format we wanted (windowed), to perform the training of the MLP.*  
 
 For the window approach to perform the training. That is, since what we have is:
-a time series like hares = [h1, h2, h3, ..., hn], to be able to train the model following the window approach we need to format this training data so that we have all the corresponding slices of size `w` in this series and its corresponding output value to train/fit the model based on this kind of input.
+a time series like hares = [h1, h2, h3, ..., hn], to be able to train the model following the window approach we need to format this training data so that we have all the corresponding slices of size `w` in this series and its corresponding target output value to train/fit the model based on this kind of input.
 
 Example: 
 - `w` = 3
-- hares = [4, 2, 1, 5, 7]
-- lynxes = [2, 3, 4, 3, 1]
+- hares = [4, 2, 1, 5, 7, 6]
+- lynxes = [2, 3, 4, 3, 1, 3]
 
-For each time series we will build all the corresponding slices of size `w` with the corresponding expected output (the next value of that slice):
-- hares: [4,2,1]:5, [2,1,5]:7
-- lynxes: [2,3,4]:3, [3,4,3]:1
+For each time series we will build all the corresponding slices of size `w` with the corresponding target output (the next value of that slice):
+- hares: [4,2,1]:5, [2,1,5]:7, [1,5,7]:6
+- lynxes: [2,3,4]:3, [3,4,3]:1, [4,3,1]:3
 
-with this we build the inputs for the MLP to be trained so that it can predict the corresponding next value of both time series as output. Therefore, as inputs we will provide the concatened windowed slices belonging to the same times of each series. As output, similarly we will expect to get two values, one for the prediction of the next value of the first series and another for the prediction made for the second series. Therefore we define a 2-element vector as expected output; one for each of the time series.
+with this we build the inputs for the MLP to be trained so that it can predict the corresponding next value of both time series as output. Therefore, as inputs we will provide the concatened windowed slices belonging to the same times of each series. As output, similarly we will expect to get two values, one for the prediction of the next value of the first series and another for the prediction made for the second series. Therefore we define a 2-element vector as target output; one for each of the time series.
 
 	- input_1 = [4,2,1]+[2,3,4] = [4,2,1,2,3,4] output_1 = [5]+[3] = [5,3] 
     - input_2 = [2,1,5]+[3,4,3] = [2,1,5,3,4,3] output_2 = [7]+[1] = [7,1]
+	- input_3 = [1,5,7]+[4,3,1] = [1,5,7,4,3,1] output_2 = [6]+[3] = [6,3]
 
 Therefore, the MLP will learn its weights and biases based on this windowed approach training, so that the MLP model will try to adjust to the output value of each time series whenever the input is like the given one.
 "
@@ -124,7 +127,7 @@ X_b, Y_b = create_dataset(df_train.lynx, lookback)
 
 # ╔═╡ da78741c-d3f5-44be-8798-662c9de8b74b
 md"
-**In Flux, by default, each column is treated as a separate data point in matrix inputs, so your target data should likely be a matrix with the same setup.**"
+**In Flux, by default, each column is treated as a separate data point in matrix inputs, so the target data is also a matrix with the same setup.**"
 
 # ╔═╡ 133e7a11-ef3b-473a-9900-561d537ab9d4
 # as before but now concatenating the b series corresponding column input for each of the columns -> vertical concatenation 
@@ -135,45 +138,63 @@ Y_ab = vcat(Y_a, Y_b)
 
 # ╔═╡ d44f537b-264d-4a5d-985a-f246ca12b75b
 md"
-## Training the model
+#### Training the model
 *train!(loss, params, data, opt; cb)* 
 
-For each datapoint d in data, compute the gradient of `loss` with respect to params through backpropagation and call the optimizer `opt`. If d is a tuple of arguments to loss call loss(d...), else call loss(d). 
+For each datapoint `d` in data, compute the gradient of `loss` with respect to params through backpropagation and call the optimizer `opt`. If d is a tuple of arguments to loss call loss(d...), else call loss(d). 
 A callback is given with the keyword argument `cb`.
 
 - `loss`: loss function -> to evaluate how well the model is performing and do the adjust of the weights and biases accordingly.
 - `params(model)`: where the parameters of the model to be adjusted to minimize the loss (weights and biases) are expressed.
-- `data`: training data, with inputs and output y (e.g. x1 = [2,4,6], y1 = [8])
-- `optimizer`: GD (Gradient Descent), SGD (Stochastic Gradient Descent), ADAM (ADaptive Moment Estimation) -- TODO: Try
+- `data`: training data, with inputs and target outputs, for each of the inputs:(`X_ab`,`Y_ab`)
+- `optimizer`: GD (Gradient Descent), SGD (Stochastic Gradient Descent), ADAM (ADaptive Moment Estimation)...
 "
 
 # ╔═╡ 96017ab0-367b-49fe-9ebe-9963aca2cbf8
-md"### 1. Model definition
-- Chain -> to stack layers 
-- Dense -> fully connected neural network layers
+md"**1. MLP definition** 
 
-- 1st layer: Dense(lookback, 5, relu) -- it is the hidden layer
-  - Input size: lookback (window size: 3 in this case)
-  - Output size: 5 -> hidden layer has 5 neurons
-  - Activation function: relu - introduces non linearity to the model... (?) TODO: look more into this
+*Chain -> to stack layers, Dense -> fully connected neural network layers*
 
-- Output layer: Dense(5,1)
-  - Input size: 5, to match the outputs of all the neurons in the hidden layer (5)
-  - Output size: 1, since we are forecasting a single future value of the time series"
+- 1st layer: Dense(`lookback * 2`, `hiddenNeurons`, `relu`) -- it is the hidden layer
+  - Input size: `lookback * 2` (window size = lookback), so `#lookback` inputs per time series, 2 in this case
+  - Output size: `hiddenNeurons` -> hidden layer has `#hiddenNeurons` neurons
+  - Activation function: ReLU - introduces non linearity to the model
+
+- Output layer: Dense(`hiddenNeurons`,2)
+  - Input size: `hiddenNeurons`, to match the outputs of all the neurons in the hidden layer (`hiddenNeurons`)
+  - Output size: 2, since we are forecasting a single future value for each of the two time series
+
+**TODO: Poner dibujito estructura**"
+
+# ╔═╡ 49884347-9130-40cc-a845-57da66e85718
+# Number of neurons in the hidden layer
+# TODO: Vary this parameter
+hiddenNeurons = 15
 
 # ╔═╡ 37e9059f-f0fa-4c22-a707-37cc68b23419
 # model
 model_ab = Chain(
-	Dense(lookback*2, 15, relu),
-	Dense(15,2)
+	Dense(lookback*2, hiddenNeurons, relu),
+	Dense(hiddenNeurons,2)
 )
 
 # ╔═╡ 92dfde86-f396-4f1d-a54a-83b6aeb725f0
 ps_ab = Flux.params(model_ab)
 
+# ╔═╡ bb8b1da2-2fe1-4657-a473-8d19e0bb3e22
+md"**2. Definition of the loss function**
+
+MSE between the model predicted values (`ŷ1`, `ŷ2` = model(x)) and the target values: `y1, y2`.
+"
+
 # ╔═╡ 7e35d18a-ad8a-497a-aeca-a32e2cce16f4
 loss_ab(x,y) = Flux.Losses.mse(model_ab(x), y) 
-# MSE between the model predicted value (ŷ = model(x)) and the real value: y
+
+# ╔═╡ 6753be48-af78-42aa-9f0d-028498a3bcd3
+md"**3. Optimizer**  
+
+- initially: simple Gradient Descent
+- More advanced optimizers: ADAM (ADaptive Moment Estimation)"
 
 # ╔═╡ 81812092-33a3-49a2-89ed-6b79ccc685bc
 #optimizer = Descent(0.01)
@@ -181,6 +202,11 @@ optimizer_ab = ADAM(0.01)
 
 # ╔═╡ 38b3a708-4bfc-44c7-805f-82d505f8ced3
 data_pair_ab = [(X_ab,Y_ab)]
+
+# ╔═╡ 72d63b54-1b2f-4aa3-8e18-acad328ed006
+md"**Training loop**
+
+TODO: Variate the # of epochs"
 
 # ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
 begin
@@ -192,10 +218,26 @@ begin
 end
 
 # ╔═╡ e1ce5c16-c38a-47d9-a78a-a0e8552b0178
-md"Testing the model"
+md"#### Testing the model
 
-# ╔═╡ 276d7f5d-43ff-48db-b364-8cb6275d6ed0
-md"Assume we have the following dataset"
+We are going to build the predictions of the test years values (predictions for the 12 years values of the test dataset), per each of the time series, with the constructed model and then check the error obtained in terms of the difference with the real test values for those years. 
+
+The predictions obtained by the model are going to be constructed in the `pred_test_a` and `pred_test_b` vectors for the hares and lynxes, respectively.
+
+The construction of the prediction vectors will be done **not** using the real test data values, instead we will make use of the self-predicted values by the model.
+
+That is, if for example we assume the window size `lookback=3`, we will construct the test years predictions of a certain time series like:
+
+- `[x_43, x_44, x_45] -> x_46'` (*`x_43,x_44,x_45` are real values from the train dataset*)
+- `[x_44, x_45, x_46'] -> x_47'` (*however, `x_46'` is not the real test value, but the one that has just been predicted by the model in the previous step*).
+- `[x_45, x_46', x_47'] -> x_48'`
+- `[x_46', x_47', x_48'] -> x_49'`
+- ...
+- `[x_54', x_55', x_56'] -> x_57'`
+
+Once we have this predicted `|test|` output set, we compare it against the real
+`|test|` dataset to obtain the error and measure the performance.
+"
 
 # ╔═╡ 03fa0548-3ad4-43f7-a8c8-be73402e8879
 test_data_a = df_test.hare
@@ -204,16 +246,16 @@ test_data_a = df_test.hare
 test_data_b = df_test.lynx
 
 # ╔═╡ c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
-pred_test_a = []
+pred_test_a = Float32[]
 
 # ╔═╡ a49f2142-5963-4a8c-abd5-51acbbee3cba
-pred_test_b = []
+pred_test_b = Float32[]
 
 # ╔═╡ 3d6662ed-8570-46c8-8f8d-abe92db8fbda
-input_vec_a = []
+input_vec_a = Float32[]
 
 # ╔═╡ 0e616447-9fe8-4747-bcda-1622dd22b890
-input_vec_b = []
+input_vec_b = Float32[]
 
 # ╔═╡ 1ac927cb-eff5-4cb4-ab90-db8028972e39
 # fill until the w (lookback) size, initially all from the last w training data elements
@@ -260,34 +302,89 @@ end
 # ╔═╡ da90cfbb-a2b4-4748-beb1-f03cd87735a8
 pred_test_a
 
+# ╔═╡ 66e56611-6bd7-41a9-a9f4-144589859f6b
+test_data_a
+
 # ╔═╡ a5f17f65-6f3e-46f8-b154-d7dad9c20848
 pred_test_b
+
+# ╔═╡ 644a54be-e4e5-42b6-89f5-84c21c6589fb
+test_data_b
 
 # ╔═╡ d28a1078-153a-4bc3-89ca-ea0b09d17d2a
 md"**NOTA: Como se estanca? el valor de la predicción!!! al hacer la predicción del test set de esta manera!!! -- Arreglar/Pensar otra forma?**"
 
+# ╔═╡ 7ac03a08-0ff8-4dfd-9766-d12f12de75ae
+md"Joint error - MSE(hare) + MSE(lynx)"
+
 # ╔═╡ a1b9c50c-7756-4c83-be9f-15faf291773d
 Flux.Losses.mse(test_data_a, pred_test_a) + Flux.Losses.mse(test_data_b, pred_test_b)
 
-# ╔═╡ 30c02617-40d7-490b-b50e-0d748bc60090
+# ╔═╡ be792622-d111-4d82-a4cb-4cd5167b5f0d
+x_axis = rawdata.year[end-11:end]
+
+# ╔═╡ 932d8ef8-5a3c-4a0e-939f-30a059fae242
+md"**Hares**"
+
+# ╔═╡ 61207c2e-59c7-4951-91c4-95673efab1b1
+md"MSE"
+
+# ╔═╡ ef5462dd-c9cb-45ba-9082-1b574e86e41f
 Flux.Losses.mse(test_data_a, pred_test_a)
 
-# ╔═╡ abb8af77-a0c2-45ee-9898-4e12152afc45
+# ╔═╡ 785d3c48-b14e-4987-97e5-694cf4b95f71
+md"Real VS Predicted population"
+
+# ╔═╡ 61926b15-da07-49fc-a488-3d135707b882
+begin
+	fig_a = Figure()
+	ax_a = GLMakie.Axis(fig_a[1, 1], xlabel="Year",
+		ylabel="Thousands of Animals")
+	GLMakie.lines!(ax_a, x_axis, test_data_a, label="Real hare population")
+	GLMakie.lines!(ax_a, x_axis, pred_test_a, label="Predicted hare population")
+	axislegend(ax_a; position=:rt)
+	fig_a
+end
+
+# ╔═╡ 3a68235c-3049-4f5e-8cbb-a744661ba914
+md"**Lynx**"
+
+# ╔═╡ b9015d7c-7082-4216-b9c9-bb98ed24fdf7
+md"MSE"
+
+# ╔═╡ ca542769-a5e2-4db1-a0af-f0502ae4de58
 Flux.Losses.mse(test_data_b, pred_test_b)
 
+# ╔═╡ ad6c5458-b20d-4d28-a933-f686a9d64214
+md"Real VS Predicted population"
+
+# ╔═╡ 8a074363-d831-44c1-8854-9142c1e02cae
+begin
+	fig_b = Figure()
+	ax_b = GLMakie.Axis(fig_b[1, 1], xlabel="Year",
+		ylabel="Thousands of Animals")
+	GLMakie.lines!(ax_b, x_axis, test_data_b, label="Real lynx population")
+	GLMakie.lines!(ax_b, x_axis, pred_test_b, label="Predicted lynx population")
+	axislegend(ax_b; position=:rt)
+	fig_b
+end
+
 # ╔═╡ 41a37d06-5599-4ab8-af75-4059333ea9b1
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	fig = Figure()
-	ax = Axis(fig[1, 1], title="Time Series Plot", xlabel="Date", ylabel="Value")
-	lines(ax, 1:length(test_data_a), test_data_a, color=:blue, label="Real test data a")
-	lines!(ax, 1:length(pred_test_a), pred_test_a, color=:cyan, label="Predicted test data a")
-	lines!(ax, 1:length(test_data_b), test_data_b, color=:red, label="Real test data b")
-	lines!(ax, 1:length(pred_test_b), pred_test_b, color=:orange, label="Predicted test data b")
+	ax = GLMakie.Axis(fig[1, 1], title="Time Series Plot", xlabel="Date", ylabel="Value")
+	GLMakie.lines!(ax, x_axis, test_data_a, color=:blue, label="Real test data a")
+	GLMakie.lines!(ax, x_axis, pred_test_a, color=:cyan, label="Predicted test data a")
+	GLMakie.lines!(ax, x_axis, test_data_b, color=:red, label="Real test data b")
+	GLMakie.lines!(ax, x_axis, pred_test_b, color=:orange, label="Predicted test data b")
 	# Adding a legend to the top of the plot
 	Legend(fig[2, 1], ax, "Data Types", valign=:top)
 	# Display the figure
 	fig
 end
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2199,7 +2296,7 @@ version = "3.5.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═babeac0c-aac9-4725-88b7-6a8d9008d6c0
+# ╟─babeac0c-aac9-4725-88b7-6a8d9008d6c0
 # ╟─a3b24f11-5102-47a4-bad2-ac6b50d78a7b
 # ╠═533f45ff-47c9-479d-8e4c-c81c33cc4e0f
 # ╟─a9b0ae89-13d4-48b3-8e98-e9a1a714b0b4
@@ -2209,26 +2306,29 @@ version = "3.5.0+0"
 # ╠═8ee839c4-881e-40f2-8347-2fd36b1be764
 # ╟─21ea978e-0c12-4eb0-9cf2-feb80f69ddbe
 # ╠═7e98f6fc-3b5c-4fab-b0bd-e64c5721ac49
-# ╠═e209ccec-72dc-4eb1-92a5-0ee0a5953074
+# ╟─e209ccec-72dc-4eb1-92a5-0ee0a5953074
 # ╠═4670ce99-3ca0-4ff9-ab53-c3462a193d28
 # ╠═05c79af6-d9bb-4804-ac4d-b7398500e318
-# ╠═d32f65d6-ddb1-44c0-8e81-00ba979cf850
+# ╟─d32f65d6-ddb1-44c0-8e81-00ba979cf850
 # ╠═42194c0b-0329-48ca-b0ba-8b14c38367de
 # ╠═ade309d5-05f7-4dbf-8496-c8f66912d1d5
 # ╠═96eafc94-1f06-4623-878f-308fbde6cc64
-# ╟─da78741c-d3f5-44be-8798-662c9de8b74b
+# ╠═da78741c-d3f5-44be-8798-662c9de8b74b
 # ╠═133e7a11-ef3b-473a-9900-561d537ab9d4
 # ╠═67a153de-d4ce-4e64-a426-eba86551c177
 # ╟─d44f537b-264d-4a5d-985a-f246ca12b75b
 # ╟─96017ab0-367b-49fe-9ebe-9963aca2cbf8
+# ╠═49884347-9130-40cc-a845-57da66e85718
 # ╠═37e9059f-f0fa-4c22-a707-37cc68b23419
 # ╠═92dfde86-f396-4f1d-a54a-83b6aeb725f0
+# ╟─bb8b1da2-2fe1-4657-a473-8d19e0bb3e22
 # ╠═7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+# ╟─6753be48-af78-42aa-9f0d-028498a3bcd3
 # ╠═81812092-33a3-49a2-89ed-6b79ccc685bc
 # ╠═38b3a708-4bfc-44c7-805f-82d505f8ced3
+# ╟─72d63b54-1b2f-4aa3-8e18-acad328ed006
 # ╠═1fb5ba25-e9bd-418c-8606-52db645bf290
 # ╟─e1ce5c16-c38a-47d9-a78a-a0e8552b0178
-# ╟─276d7f5d-43ff-48db-b364-8cb6275d6ed0
 # ╠═03fa0548-3ad4-43f7-a8c8-be73402e8879
 # ╠═38fea5b1-27e4-49c9-b521-6ab92f6b0de3
 # ╠═c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
@@ -2242,11 +2342,23 @@ version = "3.5.0+0"
 # ╠═37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
 # ╠═3a745c16-4dad-4b23-b12e-4a2d45d8c061
 # ╠═da90cfbb-a2b4-4748-beb1-f03cd87735a8
+# ╠═66e56611-6bd7-41a9-a9f4-144589859f6b
 # ╠═a5f17f65-6f3e-46f8-b154-d7dad9c20848
+# ╠═644a54be-e4e5-42b6-89f5-84c21c6589fb
 # ╟─d28a1078-153a-4bc3-89ca-ea0b09d17d2a
+# ╟─7ac03a08-0ff8-4dfd-9766-d12f12de75ae
 # ╠═a1b9c50c-7756-4c83-be9f-15faf291773d
-# ╠═30c02617-40d7-490b-b50e-0d748bc60090
-# ╠═abb8af77-a0c2-45ee-9898-4e12152afc45
+# ╠═be792622-d111-4d82-a4cb-4cd5167b5f0d
+# ╟─932d8ef8-5a3c-4a0e-939f-30a059fae242
+# ╟─61207c2e-59c7-4951-91c4-95673efab1b1
+# ╟─ef5462dd-c9cb-45ba-9082-1b574e86e41f
+# ╟─785d3c48-b14e-4987-97e5-694cf4b95f71
+# ╠═61926b15-da07-49fc-a488-3d135707b882
+# ╟─3a68235c-3049-4f5e-8cbb-a744661ba914
+# ╟─b9015d7c-7082-4216-b9c9-bb98ed24fdf7
+# ╟─ca542769-a5e2-4db1-a0af-f0502ae4de58
+# ╟─ad6c5458-b20d-4d28-a933-f686a9d64214
+# ╠═8a074363-d831-44c1-8854-9142c1e02cae
 # ╠═41a37d06-5599-4ab8-af75-4059333ea9b1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
