@@ -506,9 +506,28 @@ Do note that at certain values, there will be times when either population get v
 In the future, we will default to using ODE solvers designed for treating stifness.
 """
 
+# ╔═╡ de81ad4e-7fb1-4fa0-8924-4b612e1b5821
+md"""
+# Direct Optimiziation
+"""
+
+# ╔═╡ 43e0257a-d0fa-4273-bf65-ede63096924c
+md"""
+Our goal is to estimate the 'best' parameters for the Lokta-Volterra system, such that when we solve the differential equations we get trajectories as close as possible to our data.
+
+We define an ODE problem with the setup provided by the DifferentialEquations package, with respect to an initial guess.
+"""
+
+# ╔═╡ 59550569-40ad-4391-a960-284b15448fe2
+pguess = [1.0, 0.1, 1.0 ,0.1]
+
+# ╔═╡ f5507c07-8bd2-4808-8681-c07a32f5fe3b
+# Setup the ODE problem
+ode_problem = ODEProblem(lotka_volterra!, u0, tspan, pguess)
+
 # ╔═╡ cc725260-e780-495e-817d-6950622949ef
 md"""
-First, we need to define a criteria for _fitness_, a **loss function**.
+Then, we need to define a criteria for _fitness_, a **loss function**.
 
 
 ``$\mathcal{L}( \alpha, \beta, \delta, \gamma )= \sum_{i=1}^{57}
@@ -517,189 +536,15 @@ First, we need to define a criteria for _fitness_, a **loss function**.
 \Vert ^2_2 $``
 
 Where $\hat{x}, \hat{y}$ represent our date points and $x(t), y(t)$ are the solutions to the Lokta-Volterra systems with the given parameters.
+
+Note that at every call of `direct_loss`, we solve the differential equation. 
 """
-
-# ╔═╡ fa4a629b-28f5-4007-8c8a-9682497c4d72
-md"""
-# Neural ODE 
-"""
-
-# ╔═╡ cf44dd16-7da1-4450-aa27-312c72c0b31b
-#=╠═╡
-callback(pguess, loss(pguess)...)
-  ╠═╡ =#
-
-# ╔═╡ dddc4781-f83b-46e8-a6e2-568be3b24283
-begin
-	const NN = Chain(
-		Dense(2, 8, tanh_fast),
-		Dense(8, 32, tanh_fast),
-		Dense(32, 2, tanh_fast))
-	NNparams, state = Lux.setup(Random.default_rng(), NN)
-	const _st = state
-end
-
-# ╔═╡ 70d491e3-38d4-4d17-82b7-d727602e0f66
-md"""
-The optimization framework uses Automatic Differentiation to obtain the objective gradients. We will be using the 'Zygote' backend.
-"""
-
-# ╔═╡ 2ac42518-6018-4372-bc05-804caa9717f5
-md"""
-How can we find the values of the paremeters that best _fit_ the system into the data?
-"""
-
-# ╔═╡ 3cd69d7c-dc4b-4fa6-a6ba-db5c96209bb4
-callback = function (p, l, pred)
-    println(l)
-    # plot current prediction against data
-    return false
-end
-
-# ╔═╡ b3febfd2-21cb-44d1-ba58-98ee7f8f2e58
-#=╠═╡
-optprob = Optimization.OptimizationProblem(optf, pguess)
-  ╠═╡ =#
-
-# ╔═╡ da15b2a3-7da6-4e08-9a11-b8376dea06b6
-pinit = ComponentArray(NNparams)
-
-# ╔═╡ de81ad4e-7fb1-4fa0-8924-4b612e1b5821
-md"""
-# Direct Optimiziation
-"""
-
-# ╔═╡ ff35d4cf-3a80-4dda-92f5-cff14ecd9016
-# ╠═╡ disabled = true
-#=╠═╡
-pguess = [1.0, 0.1, 1.0 ,0.1]
-  ╠═╡ =#
-
-# ╔═╡ 54b59818-0a5d-4964-bf65-696a06966123
-prob_neuralode = NeuralODE(NN, tspan, Tsit5(); saveat = 1)
-
-# ╔═╡ 75dbd942-0305-48ba-8a32-55148b9d700b
-function predict_neuralode(params)
-    Array(prob_neuralode(u0, params, state)[1])
-end
-
-# ╔═╡ 811af0da-0077-4ca0-8f86-4a1712dd48b0
-md"""
-Switch to different optimizer lol
-"""
-
-# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
-# ╠═╡ disabled = true
-#=╠═╡
-adtype = Optimization.AutoForwardDiff()
-  ╠═╡ =#
-
-# ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
-begin
-	adtype = Optimization.AutoZygote()
-	
-	optf = Optimization.OptimizationFunction((x, p) -> loss_neuralode(x), adtype)
-	optprob = Optimization.OptimizationProblem(optf, pinit)
-	
-end
-
-
-
-# ╔═╡ a166b6b1-8f4d-4cbf-b384-a2e2e168c195
-result_neuralode = Optimization.solve(optprob, Optimisers.Adam(0.05); 
-	callback = callback, maxiters = 200)
-
-# ╔═╡ 6aa8cf03-1a52-4000-8f81-963b2f7bb19e
-optprob2 = remake(optprob; u0 = result_neuralode.u)
-
-# ╔═╡ c8d80e93-705f-4549-a16b-c56858cb990c
-result_neuralode2 = Optimization.solve(optprob2, Optim.BFGS(; initial_stepnorm = 0.01); callback, allow_f_increases = false)
-
-# ╔═╡ 8ec0d06f-01b6-417c-aec7-cbd66f4c41a5
-result_ode = Optimization.solve(optprob, callback=callback,
-                                maxiters = 100)
-
-# ╔═╡ 6b550704-5e9c-4bfd-9b49-239029b789b3
-#=╠═╡
-loss(pguess)
-  ╠═╡ =#
-
-# ╔═╡ f8e99383-f22b-4cf5-97f1-304a3c901883
-# ╠═╡ disabled = true
-#=╠═╡
-result_ode
-  ╠═╡ =#
-
-# ╔═╡ 7c37627b-f771-4084-9163-08e361723bbc
-# ╠═╡ disabled = true
-#=╠═╡
-optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
-  ╠═╡ =#
-
-# ╔═╡ 5a3e7c61-0837-476f-9488-cd553ca566c4
-length(result_neuralode2.u.layer_1[:])
-
-# ╔═╡ 2d69e051-7651-4e37-9f00-ff5ba23ee74a
-function plot_trajectory(pred)
-	fig_node = Figure()
-	ax3 = GLMakie.Axis(fig_node[1,1],
-			xlabel="Year",
-			ylabel="Thousands of Animals")
-	tsteps = range(tspan[1]+1, tspan[2]+1; step=1)
-	empty!(ax3)
-	GLMakie.series!(ax3, pred, labels=["Hare", "Lynx"], color=[:blue, :orange])
-	GLMakie.scatter!(ax3, tsteps, true_values[1,:], color = :darkblue)
-	GLMakie.scatter!(ax3, tsteps, true_values[2,:], color = :chocolate)
-	axislegend(ax3; position=:rt)
-	return fig_node
-end
-
-# ╔═╡ 8e0fd028-4d94-430d-9b09-1c3bbe1c7c34
-plot_trajectory( predict_neuralode(result_neuralode.u))
-
-# ╔═╡ d9a1c0f7-da3d-4956-b353-20033ed0ce52
-plot_trajectory(predict_neuralode(pinit))
-
-# ╔═╡ 3e94f5b7-5c00-4eb5-91d4-890be641b0b5
-plot_trajectory( predict_neuralode(result_neuralode2.u))
-
-# ╔═╡ fe07b7b0-024a-4651-880f-b0e79662634b
-loss(p)
-
-# ╔═╡ 90b70812-4f93-4950-b253-60d3b4d09949
-# ╠═╡ disabled = true
-#=╠═╡
-callback = function (p, l, sol)
-	# Tell Optimization.solve to not halt the optimization. If return true, then
-	# optimization stops.
-	if l == Inf 
-		@info "el solver falló. Terminating..."
-		return true
-	else
-	    println(l)
-	    plt = Plots.plot(sol, ylim = (0, 150), label = "Current Prediction")
-	    Plots.scatter!(plt, true_values, label = "data")
-		return false
-	end
-    
-end
-  ╠═╡ =#
-
-# ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
-begin
-	true_values = transpose(Matrix(df_train))
-	function loss_neuralode(p)
-	    pred = predict_neuralode(p)
-	    loss = sum(abs2, true_values .- pred)
-	    return loss, pred
-	end
-end
 
 # ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
 begin
 	true_values = transpose(Matrix(df))
-	function loss(newp)
-	    newprob = remake(prob, p = newp)
+	function direct_loss(newp)
+	    newprob = remake(ode_problem, p = newp)
 	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
 		
 	    loss = try sum(abs2, sol .- true_values) 
@@ -709,6 +554,239 @@ begin
 		return loss, sol  
 	end
 end
+
+# ╔═╡ 8b30b9a6-b482-4252-ab99-60effead691a
+data = solve(ode_problem, saveat = 1) |> Array
+
+# ╔═╡ 71ae0908-006c-4d69-a78d-b2c59141f74d
+callback = function (p, l, sol)
+    println(typeof(p))
+	println(typeof(l))
+	println(typeof(sol))
+    # Tell Optimization.solve to not halt the optimization. If return true, then
+    # optimization stops.
+    return false
+end
+
+# ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
+begin
+	optf = Optimization.OptimizationFunction((x, p) -> direct_loss(x), 		Optimization.AutoForwardDiff())
+	optprob = Optimization.OptimizationProblem(optf, pguess)
+end
+
+# ╔═╡ cc0600c6-3ffc-4708-bc56-61308aecdd65
+# ╠═╡ disabled = true
+#=╠═╡
+result_ode = Optimization.solve(optprob, PolyOpt(),
+                                callback = callback,
+                                maxiters = 2)
+  ╠═╡ =#
+
+# ╔═╡ fa4a629b-28f5-4007-8c8a-9682497c4d72
+md"""
+# Neural ODE 
+"""
+
+# ╔═╡ 9c4a8da9-6b02-428c-9479-e0536fb67519
+md"""
+For this section, we are going to attempt learning the dynammics of our time series, without assuming it has the structure of a Lokta-Volterra system. Instead, we will model the derivatives of the hare and lynx populations with a Neural Network.
+
+$\left\{ \begin{align}
+x'(t) &= NN_1(x, y, \theta)\\
+y'(t) &= NN_2(x, y, \theta)
+\end{align} \right.$
+
+This setup is known as a "Neural Ordinary Differential Equation" (Neural ODE or NODE).
+
+## Model setup
+We will use `DiffEqFlux.jl` to declare our NODEs, and the NN framework `Lux.jl` instead of `Flux.jl` as it is the prefered choice for NeuralODEs according to the [SCIML documentation](https://docs.sciml.ai/DiffEqFlux/dev/#Flux.jl-vs-Lux.jl).
+
+We start by defining a custom wrapper function `neural_ode` that will initialize our NeuralODE and its parameters, algong with other utility functions.
+"""
+
+# ╔═╡ 44ff87d8-50df-41c4-a3b4-af96e2e29438
+function plot_trajectories(y, pred)
+    n = size(y, 2)
+    m = size(pred,2)
+    years = rawdata.year
+	fig_node = Figure()
+	ax3 = GLMakie.Axis(fig_node[1,1], xlabel="Year", ylabel="Thousands of Animals")
+	GLMakie.ylims!(ax3,0,150)
+	
+    GLMakie.lines!(ax3, years[1:m], pred[1,:], label="x(t)")
+	GLMakie.lines!(ax3, years[1:m], pred[2,:], label="y(t)")
+    GLMakie.scatter!(ax3, years[1:n], y[1, :]; 
+    label = "hare", color=:green)
+    GLMakie.scatter!(ax3, years[1:n], y[2, :];
+    label = "lynx", color=:red2)
+    axislegend(ax3; position=:rt)
+    display(fig_node)
+	return fig_node
+end
+
+# ╔═╡ f2e13bc3-d3ca-43be-852c-5ab16f7648cd
+md"""
+### Testing out the model
+The parameters of the Neural Network are initialized randomly, therefore the initial trajectories will not make much sense. The following code shows how this model is used.
+"""
+
+# ╔═╡ 78b0e77b-1746-4528-bb08-b761ef088c84
+begin
+	u_train = transpose(Matrix(df_train))
+	t_train = Float32.(Array(0.0:Float32(size(df_train)[1]-1)))
+	train_years = rawdata.year[1:45]
+	rng = Random.MersenneTwister(1000)	
+end
+
+# ╔═╡ 01e51c71-ad3b-4f82-924b-edd8d0232e11
+function neural_ode(t, data_dim)
+    f = Lux.Chain(
+        Lux.Dense(data_dim, 5, Lux.swish),
+        Lux.Dense(5, data_dim)
+    )
+
+    node = NeuralODE(
+        f, extrema(t), Tsit5(),
+        saveat=t,
+        abstol=1e-9, reltol=1e-9
+    )
+    p, state = Lux.setup(rng, f)
+
+    return node, ComponentArray(p), state
+end
+
+# ╔═╡ 62557d5e-5d63-4f9b-af67-2df2ae01c28d
+predict(y0, t, p=nothing, state=nothing) = begin
+    node, p_random, state_random = neural_ode(t, length(y0))
+    if p === nothing p = p_random end
+    if state === nothing state = state_random end
+    ŷ = Array(node(y0, p, state)[1])
+end
+
+# ╔═╡ 61ffd079-9e80-4102-8e81-77b32afac384
+prediction = predict(u0, t_train)
+
+# ╔═╡ 14b92513-f2ab-4d60-9772-eebbdce50f99
+plot_trajectories(u_train, prediction)
+
+# ╔═╡ 33e16c9b-2d18-4e88-89fc-5845500532e6
+md"""
+## Training the model
+For this setup, we will use a `callback` function to print the values of the loss function at every epoch of the training method `solve`. 
+"""
+
+# ╔═╡ f4017dce-3179-45d1-bc9e-7a367d637114
+function train_one_round(node, p, st, y, maxiters, lr)
+    pred(p) = Array(node(u0, p, st)[1])
+    loss(p) = sum(abs2, pred(p) .- y)/length(u_train)
+    callback(p, l) = begin
+        println(l)
+        return false
+    end
+    adtype = Optimization.AutoZygote()
+    optf = OptimizationFunction((p, _ ) -> loss(p), adtype)
+    optprob = OptimizationProblem(optf, p)
+    res = solve(optprob, Optimisers.ADAMW(lr), maxiters=maxiters, callback=callback)
+    return res.u, st, pred(p)
+end
+
+
+# ╔═╡ 6e994f72-4dd4-43c1-805c-2d1d2dddc66e
+# ╠═╡ disabled = true
+#=╠═╡
+function train(y, t, maxiters = 150, lr = 1e-2)
+    p=nothing
+    state=nothing
+    
+    for k in 3:3:length(t_train)
+        println("Training batch of first $k values")
+        node, p_new, state_new = neural_ode(t[1:k], size(y, 1))
+        if p === nothing p = p_new end
+        if state === nothing state = state_new end
+
+        p, state, pred = train_one_round( node, p, state, y[:,1:k], maxiters, lr)
+        plot_trajectories(y, pred)
+    end
+    p, state
+end
+  ╠═╡ =#
+
+# ╔═╡ f6ff8dc9-34e2-4190-a3af-06ead47850f8
+md"""
+### Using only the first 5 data points  
+"""
+
+# ╔═╡ 8b145699-98b8-456a-a526-a987a34cfbdb
+begin
+	node_small, p_small, state_small = neural_ode(t_train[1:5], 2)
+    p_small, state, pred_small = train_one_round( node_small, p_small, state_small, 		true_values[:,1:5], 2, 1e-2)
+    plot_trajectories(true_values[:,1:5], pred_small)
+end
+
+# ╔═╡ f5317563-b27b-4490-8be3-bd16e4e73457
+md"""
+### Using all the data points
+"""
+
+# ╔═╡ be9d4488-d43d-4cef-9a2b-5c4e774fd8b8
+begin
+	node_large, p_large, state_large = neural_ode(t_train, 2)
+    p_large, state_large, pred_large = train_one_round( node_large, p_large, state_large,			true_values[:, 1:45], 2, 1e-2)
+    plot_trajectories(true_values[:,1:45], pred_large)
+end
+
+# ╔═╡ 709d2a0e-50e1-4498-b0cd-13ac16cd7b21
+true_values[:,1:45]
+
+# ╔═╡ bb8f83c0-6c60-431e-ad0e-d6f761eb907d
+md"""
+# Conclusions
+The MLP model was successfull in the series forecast, and quite easy to implement compared to the ODE models.
+
+From the beggining, we were aware that it is impossible to find values for the parameters (α , β, δ, γ) producing Lokta-Volterra ODE perfectly fitting our data. What we did not expect is that the potential _stiffness_ of ODE would end up breaking the Optimization scheme.
+
+Our NeuralODE model was able to learn the curves when it was fed a a small quantity of data, but performed rather disappointingly when the training data was extended beyond *. 
+We believe that the issue comes from the fact that NeuralODE do not (by default) hold the same Universal Approximation Properties as Neural Networks. This has been studied by several authors, the latest work to our knowledge is by [Teshima et. al.](https://arxiv.org/abs/2012.02414).
+
+## Future work
+
+### Augmentation
+
+A clear intuition on why that is the case can be found on the image below, representing a one-dimensional NeuralODE h'(t) = f(h(t), t). It is impossible to find a continuous vector field f that would make any pair of trajectories intersect.
+"""
+
+# ╔═╡ ea0f5380-38af-4c15-a5f0-5cba16cce1cb
+load("./images/node-non-universality.png")
+
+# ╔═╡ 678a5e7e-52cc-4ee8-9779-ba486fe26d63
+md"""
+The simplest solution to this problem was proposed by [Dupont et. al.](https://arxiv.org/abs/1904.01681). One can _augment_ the dimension of the state, giving enough space to the trajectories to cross without intersecting. This idea is actually very similar to kernel feature spaces.
+
+The image belows shows an example of this for a classification task, where NeuralODEs try to find trajectories separating two levels of data points.
+"""
+
+# ╔═╡ 434d990e-e534-4b9b-867d-11cf8389c43b
+load("./images/augment.png")
+
+# ╔═╡ 6a1ae815-69c1-4b2b-900c-2312a2409485
+md"""
+We will be implementing that in the future.
+
+### Hybrid Model
+
+We plan on implementing a model that combines the NeuralODE with the direct ODE parameter optimization. In this case, the Neural Network will represent the dynammics of the difference between a pure Lokta-Volterra ODE and our 'noisy' dataset. 
+
+$\left\{ \begin{align}
+x'(t) &= \alpha x(t) - \beta x(t)  y(t) + NN_1(x, y, \theta)\\
+y'(t) &= -\gamma y(t) + \delta x(t)  y(t) + NN_2(x, y, \theta)
+\end{align} \right.$
+
+Our training scheme will try to learn both $\alpha, \beta, \gamma, \delta$ and the Neural Network parameters $\theta$.
+
+We believe that model will be able to approximate the trajectory, as it has already been studied by [Rackauckas et.al](https://arxiv.org/abs/2001.04385) in their paper "Universal Differential Equations for Machine Learning". 
+
+We have already tried to implement it, but we faced some issues. Our goal is to fix the bugs and present the model for the following delivery.
+"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -4142,37 +4220,37 @@ version = "3.5.0+0"
 # ╟─79427815-d276-4169-aa18-8e97a5e30775
 # ╟─e0941276-91bf-4aca-90df-87c1bd3ac6ae
 # ╟─85c89222-0578-40c6-9394-37b0c3f18d30
-# ╠═75dbd942-0305-48ba-8a32-55148b9d700b
-# ╠═cc725260-e780-495e-817d-6950622949ef
-# ╠═fa4a629b-28f5-4007-8c8a-9682497c4d72
-# ╠═8e0fd028-4d94-430d-9b09-1c3bbe1c7c34
-# ╠═cf44dd16-7da1-4450-aa27-312c72c0b31b
-# ╠═dddc4781-f83b-46e8-a6e2-568be3b24283
-# ╠═2d69e051-7651-4e37-9f00-ff5ba23ee74a
-# ╠═a166b6b1-8f4d-4cbf-b384-a2e2e168c195
-# ╠═70d491e3-38d4-4d17-82b7-d727602e0f66
-# ╠═fe07b7b0-024a-4651-880f-b0e79662634b
-# ╠═2ac42518-6018-4372-bc05-804caa9717f5
-# ╠═d9a1c0f7-da3d-4956-b353-20033ed0ce52
-# ╠═6aa8cf03-1a52-4000-8f81-963b2f7bb19e
-# ╠═3cd69d7c-dc4b-4fa6-a6ba-db5c96209bb4
-# ╠═b3febfd2-21cb-44d1-ba58-98ee7f8f2e58
-# ╠═8ec0d06f-01b6-417c-aec7-cbd66f4c41a5
-# ╠═c8d80e93-705f-4549-a16b-c56858cb990c
-# ╠═da15b2a3-7da6-4e08-9a11-b8376dea06b6
-# ╠═de81ad4e-7fb1-4fa0-8924-4b612e1b5821
-# ╠═ff35d4cf-3a80-4dda-92f5-cff14ecd9016
-# ╠═54b59818-0a5d-4964-bf65-696a06966123
-# ╠═811af0da-0077-4ca0-8f86-4a1712dd48b0
-# ╠═7d11f193-1c22-41d7-a29d-d6c5a1051b59
-# ╠═3e94f5b7-5c00-4eb5-91d4-890be641b0b5
-# ╠═38ed433a-b084-403a-bc2f-0890a7b52353
-# ╠═6b550704-5e9c-4bfd-9b49-239029b789b3
-# ╠═f8e99383-f22b-4cf5-97f1-304a3c901883
-# ╠═2112b7df-4470-4748-9334-a77fb0cbc119
-# ╠═7c37627b-f771-4084-9163-08e361723bbc
-# ╠═5a3e7c61-0837-476f-9488-cd553ca566c4
+# ╟─de81ad4e-7fb1-4fa0-8924-4b612e1b5821
+# ╟─43e0257a-d0fa-4273-bf65-ede63096924c
+# ╠═59550569-40ad-4391-a960-284b15448fe2
+# ╠═f5507c07-8bd2-4808-8681-c07a32f5fe3b
+# ╟─cc725260-e780-495e-817d-6950622949ef
 # ╠═a69aaafa-ac8e-4031-b997-8e9c227e3987
-# ╠═90b70812-4f93-4950-b253-60d3b4d09949
+# ╠═8b30b9a6-b482-4252-ab99-60effead691a
+# ╠═71ae0908-006c-4d69-a78d-b2c59141f74d
+# ╠═38ed433a-b084-403a-bc2f-0890a7b52353
+# ╠═cc0600c6-3ffc-4708-bc56-61308aecdd65
+# ╟─fa4a629b-28f5-4007-8c8a-9682497c4d72
+# ╟─9c4a8da9-6b02-428c-9479-e0536fb67519
+# ╠═01e51c71-ad3b-4f82-924b-edd8d0232e11
+# ╠═62557d5e-5d63-4f9b-af67-2df2ae01c28d
+# ╠═44ff87d8-50df-41c4-a3b4-af96e2e29438
+# ╟─f2e13bc3-d3ca-43be-852c-5ab16f7648cd
+# ╠═78b0e77b-1746-4528-bb08-b761ef088c84
+# ╠═61ffd079-9e80-4102-8e81-77b32afac384
+# ╠═14b92513-f2ab-4d60-9772-eebbdce50f99
+# ╟─33e16c9b-2d18-4e88-89fc-5845500532e6
+# ╠═f4017dce-3179-45d1-bc9e-7a367d637114
+# ╟─6e994f72-4dd4-43c1-805c-2d1d2dddc66e
+# ╟─f6ff8dc9-34e2-4190-a3af-06ead47850f8
+# ╠═8b145699-98b8-456a-a526-a987a34cfbdb
+# ╟─f5317563-b27b-4490-8be3-bd16e4e73457
+# ╠═be9d4488-d43d-4cef-9a2b-5c4e774fd8b8
+# ╠═709d2a0e-50e1-4498-b0cd-13ac16cd7b21
+# ╟─bb8f83c0-6c60-431e-ad0e-d6f761eb907d
+# ╟─ea0f5380-38af-4c15-a5f0-5cba16cce1cb
+# ╟─678a5e7e-52cc-4ee8-9779-ba486fe26d63
+# ╟─434d990e-e534-4b9b-867d-11cf8389c43b
+# ╟─6a1ae815-69c1-4b2b-900c-2312a2409485
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
