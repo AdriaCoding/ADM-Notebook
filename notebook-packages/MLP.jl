@@ -78,17 +78,17 @@ md"### Window-based
 
 Another important aspect that we do in our model is to follow a window based approach. That is, the input of the MLP is a windowed time series of size `w`: `[(a1,b1), (a2,b2), ...,(aw,bw)]`. 
 
-E.g. w=3, input:[(a1,b1), (a2,b2), (a3,b3)] and the MLP model will produce as output (a'4,b'4).
+This way, we make that a certain prediction only depends on the last `w` values of the time series. Since *does the number of hares in 1860 matter when trying to predict the number of hares in 1900?* (See the nature of the time series in the `Visualization of the entire dataset` subsection).
 
-This way, we make that a certain prediction only depends on the last `w` values of the time series; which makes sense to be like this, since *what does it matter the number of hares in 1860 when trying to predict the number of hares in 1900?* (See the nature of the time series in the `Visualization of the entire dataset` subsection).
+E.g. w=3, input:[(a1,b1), (a2,b2), (a3,b3)] and the MLP model will produce as output (a'4,b'4).
 
 Therefore, the challenge here is to select a proper window size `w`.
 "
 
 # ╔═╡ 4670ce99-3ca0-4ff9-ab53-c3462a193d28
 md"#### Preparing the training data
-Create customised train datasets in the input format we wanted (windowed), to perform the training of the MLP.  
-That is, since what we have is a time series like hares = [h1, h2, h3, ..., hn], to be able to train the model following the window approach we need to format this training data so that we have all the corresponding slices of size `w` in this series and its corresponding target output value to train/fit the model based on this kind of input.
+We create customised train datasets in the windowed input format.  
+That is, since what we have is a time series like hares = [h1, h2, h3, ..., hn], to be able to train the model following the window approach we need to format this training data so that we have all the corresponding slices of size `w` in this series and its corresponding target output value to train/fit the model.
 
 Example: 
 - `w` = 3
@@ -99,7 +99,7 @@ For each time series we will build all the corresponding input slices of size `w
 - hares: [4,2,1]:5, [2,1,5]:7, [1,5,7]:6
 - lynxes: [2,3,4]:3, [3,4,3]:1, [4,3,1]:3
 
-with this we build the inputs for the MLP to be trained so that it can predict the corresponding next value of both time series as output. Therefore, as inputs we will provide the concatened windowed slices belonging to the same times of each series. As output, similarly we will expect to get two values, one for the prediction of the next value of the first series and another for the prediction made for the second series. Therefore we define a 2-element vector as target output; one for each of the time series.
+As inputs we will provide $[h_{i-3}, h_{i-2}, h_{i-1}, l_{i-3}, l_{i-2}, l_{i-1}]$. As output, similarly we will expect to get two values $[h_i, l_i]$.
 
 	- input_1 = [4,2,1]+[2,3,4] = [4,2,1,2,3,4] output_1 = [5]+[3] = [5,3] 
     - input_2 = [2,1,5]+[3,4,3] = [2,1,5,3,4,3] output_2 = [7]+[1] = [7,1]
@@ -121,7 +121,7 @@ function create_dataset(data, lookback)
 end
 
 # ╔═╡ 3d0bf36d-caa6-4122-8ae1-dafba79b1886
-md"Looking at the nature of the time series in the `Visualization of the entire dataset` subsection, we select 3 as window size, however greater or smaller window sizes could also be selected."
+md"Looking at the nature of the time series in the `Visualization of the entire dataset` subsection, we select 3 as window size. Greater or smaller window sizes could also be selected."
 
 # ╔═╡ 42194c0b-0329-48ca-b0ba-8b14c38367de
 lookback = 3  # Window size 
@@ -242,13 +242,13 @@ end
 # ╔═╡ e1ce5c16-c38a-47d9-a78a-a0e8552b0178
 md"#### Testing the model
 
-We are going to build the predictions of the test years values (predictions for the 12 years values of the test dataset), per each of the time series, with the constructed model and then check the error obtained in terms of the difference with the real test values for those years. 
+We are going to build the predictions of the test values, for 🐇 and 🐆, with the constructed model and then check the error obtained in terms of the difference with the real test values for those years. 
 
 The predictions obtained by the model are going to be constructed in the `pred_test_a` and `pred_test_b` vectors for the hares and lynxes, respectively.
 
-The construction of the prediction vectors will be done **not** using the real test data values, instead we will make use of the self-predicted values by the model.
+The construction of the prediction vectors will **not** be done using the real test data values, instead we will make use of the self-predicted values by the model.
 
-That is, if for example we assume the window size `lookback=3`, we will construct the test years predictions of a certain time series like:
+For instance, if we assume the window size `lookback=3`, we will construct the test years predictions of a certain time series like:
 
 - `[x_43, x_44, x_45] -> x_46'` (*`x_43,x_44,x_45` are real values from the train dataset*)
 - `[x_44, x_45, x_46'] -> x_47'` (*however, `x_46'` is not the real test value, but the one that has just been predicted by the model in the previous step*).
@@ -257,58 +257,30 @@ That is, if for example we assume the window size `lookback=3`, we will construc
 - ...
 - `[x_54', x_55', x_56'] -> x_57'`
 
-Once we have this predicted `|test|` output set, we compare it against the real
-`|test|` dataset to obtain the error and measure the performance.
+Once we have this predicted ``|\hat{test}|`` output set, we compare it against the real
+``|test|`` dataset to obtain the error and measure the performance.
 "
 
 # ╔═╡ 03fa0548-3ad4-43f7-a8c8-be73402e8879
-test_data_a = df_test.hare
-
-# ╔═╡ 38fea5b1-27e4-49c9-b521-6ab92f6b0de3
-test_data_b = df_test.lynx
-
-# ╔═╡ c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
-pred_test_a = Float32[]
-
-# ╔═╡ a49f2142-5963-4a8c-abd5-51acbbee3cba
-pred_test_b = Float32[]
-
-# ╔═╡ 3d6662ed-8570-46c8-8f8d-abe92db8fbda
-input_vec_a = Float32[]
-
-# ╔═╡ 0e616447-9fe8-4747-bcda-1622dd22b890
-input_vec_b = Float32[]
-
-# ╔═╡ 1ac927cb-eff5-4cb4-ab90-db8028972e39
-# fill until the w (lookback) size, initially all from the last w training data elements
-for i in length(df_train.hare)-lookback+1:length(df_train.hare)
-	push!(input_vec_a, df_train.hare[i])
-	push!(input_vec_b, df_train.lynx[i])
+begin
+	test_data_a = df_test.hare
+	test_data_b = df_test.lynx
+	pred_test_a = Float32[]
+	pred_test_b = Float32[]
+	input_vec_a = Float32[]
+	input_vec_b = Float32[]
+	# fill until the w (lookback) size, initially all from the last w training data elements
+	for i in length(df_train.hare)-lookback+1:length(df_train.hare)
+		push!(input_vec_a, df_train.hare[i])
+		push!(input_vec_b, df_train.lynx[i])
+	end
 end
-
-# ╔═╡ c12639ed-ea41-4e8a-aa89-78acb1627b4c
-df_train.hare
-
-# ╔═╡ 559e80db-433a-4b8b-bb63-89789adaa1e2
-df_train.lynx
-
-# ╔═╡ 1935dca5-977f-4372-a434-5ee8641f7604
-input_vec_a
-
-# ╔═╡ 37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
-input_vec_b
 
 # ╔═╡ 3a745c16-4dad-4b23-b12e-4a2d45d8c061
 for i in 1:length(test_data_a)
-	println("iteration:", i)
-	# predict each of the test outputs, both for a and b
-	println(input_vec_a)
-	println(input_vec_b)
 	# put together the two vectors to do the prediction
 	input_vec_ab = vcat(input_vec_a, input_vec_b)
-	println(input_vec_ab)
 	output_ab = model_ab(input_vec_ab)
-	println(output_ab)
 	# The first predicted value is for the a series and the second for the b series
 	push!(pred_test_a, output_ab[1])
 	push!(pred_test_b, output_ab[2])
@@ -321,44 +293,23 @@ for i in 1:length(test_data_a)
 	input_vec_b[lookback] = output_ab[2]
 end
 
-# ╔═╡ da90cfbb-a2b4-4748-beb1-f03cd87735a8
-pred_test_a
-
-# ╔═╡ 66e56611-6bd7-41a9-a9f4-144589859f6b
-test_data_a
-
-# ╔═╡ a5f17f65-6f3e-46f8-b154-d7dad9c20848
-pred_test_b
-
-# ╔═╡ 644a54be-e4e5-42b6-89f5-84c21c6589fb
-test_data_b
-
 # ╔═╡ 7ac03a08-0ff8-4dfd-9766-d12f12de75ae
 md"Joint error - MSE(hare) + MSE(lynx)"
 
 # ╔═╡ a1b9c50c-7756-4c83-be9f-15faf291773d
 Flux.Losses.mse(test_data_a, pred_test_a) + Flux.Losses.mse(test_data_b, pred_test_b)
 
-# ╔═╡ be792622-d111-4d82-a4cb-4cd5167b5f0d
-x_axis = rawdata.year[end-11:end]
-
 # ╔═╡ 932d8ef8-5a3c-4a0e-939f-30a059fae242
-md"**Hares**"
+md"#### Hares
 
-# ╔═╡ 61207c2e-59c7-4951-91c4-95673efab1b1
-md"MSE"
-
-# ╔═╡ ef5462dd-c9cb-45ba-9082-1b574e86e41f
-Flux.Losses.mse(test_data_a, pred_test_a)
-
-# ╔═╡ 785d3c48-b14e-4987-97e5-694cf4b95f71
-md"Real VS Predicted population"
+MSE = $(Flux.Losses.mse(test_data_a, pred_test_a))"
 
 # ╔═╡ 61926b15-da07-49fc-a488-3d135707b882
 begin
+	x_axis = rawdata.year[end-11:end]
 	fig_a = Figure()
 	ax_a = GLMakie.Axis(fig_a[1, 1], xlabel="Year",
-		ylabel="Thousands of Animals")
+		ylabel="Thousands of Animals", title="Hares test results")
 	GLMakie.lines!(ax_a, x_axis, test_data_a, label="Real hare population")
 	GLMakie.lines!(ax_a, x_axis, pred_test_a, label="Predicted hare population")
 	axislegend(ax_a; position=:rt)
@@ -366,38 +317,19 @@ begin
 end
 
 # ╔═╡ 3a68235c-3049-4f5e-8cbb-a744661ba914
-md"**Lynx**"
-
-# ╔═╡ b9015d7c-7082-4216-b9c9-bb98ed24fdf7
-md"MSE"
-
-# ╔═╡ ca542769-a5e2-4db1-a0af-f0502ae4de58
-Flux.Losses.mse(test_data_b, pred_test_b)
-
-# ╔═╡ ad6c5458-b20d-4d28-a933-f686a9d64214
-md"Real VS Predicted population"
+md"#### Lynx
+MSE = $(Flux.Losses.mse(test_data_b, pred_test_b))
+"
 
 # ╔═╡ 8a074363-d831-44c1-8854-9142c1e02cae
 begin
 	fig_b = Figure()
 	ax_b = GLMakie.Axis(fig_b[1, 1], xlabel="Year",
-		ylabel="Thousands of Animals")
+		ylabel="Thousands of Animals", title="Lynx test results")
 	GLMakie.lines!(ax_b, x_axis, test_data_b, label="Real lynx population")
 	GLMakie.lines!(ax_b, x_axis, pred_test_b, label="Predicted lynx population")
 	axislegend(ax_b; position=:rt)
 	fig_b
-end
-
-# ╔═╡ 41a37d06-5599-4ab8-af75-4059333ea9b1
-begin
-	fig = Figure()
-	ax = GLMakie.Axis(fig[1, 1], title="Time Series Plot", xlabel="Date", ylabel="Value")
-	GLMakie.lines!(ax, x_axis, test_data_a, color=:darkblue, label="Real hare population")
-	GLMakie.lines!(ax, x_axis, pred_test_a, color=:darkblue, linestyle=:dash, label="Predicted hare population")
-	GLMakie.lines!(ax, x_axis, test_data_b, color=:orange, label="Real lynx population")
-	GLMakie.lines!(ax, x_axis, pred_test_b, color=:orange, linestyle=:dash, label="Predicted lynx population")
-	axislegend(ax; position=:rt)
-	fig
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -2664,7 +2596,7 @@ version = "3.5.0+0"
 # ╠═05c79af6-d9bb-4804-ac4d-b7398500e318
 # ╟─3d0bf36d-caa6-4122-8ae1-dafba79b1886
 # ╠═42194c0b-0329-48ca-b0ba-8b14c38367de
-# ╠═ade309d5-05f7-4dbf-8496-c8f66912d1d5
+# ╟─ade309d5-05f7-4dbf-8496-c8f66912d1d5
 # ╠═96eafc94-1f06-4623-878f-308fbde6cc64
 # ╟─da78741c-d3f5-44be-8798-662c9de8b74b
 # ╠═133e7a11-ef3b-473a-9900-561d537ab9d4
@@ -2685,34 +2617,12 @@ version = "3.5.0+0"
 # ╠═1fb5ba25-e9bd-418c-8606-52db645bf290
 # ╟─e1ce5c16-c38a-47d9-a78a-a0e8552b0178
 # ╠═03fa0548-3ad4-43f7-a8c8-be73402e8879
-# ╠═38fea5b1-27e4-49c9-b521-6ab92f6b0de3
-# ╠═c517d33a-2b3f-42a0-96ef-f80d2bb36e3a
-# ╠═a49f2142-5963-4a8c-abd5-51acbbee3cba
-# ╠═3d6662ed-8570-46c8-8f8d-abe92db8fbda
-# ╠═0e616447-9fe8-4747-bcda-1622dd22b890
-# ╠═1ac927cb-eff5-4cb4-ab90-db8028972e39
-# ╠═c12639ed-ea41-4e8a-aa89-78acb1627b4c
-# ╠═559e80db-433a-4b8b-bb63-89789adaa1e2
-# ╠═1935dca5-977f-4372-a434-5ee8641f7604
-# ╠═37884e6b-a8a2-4bcc-bf86-c9cbfe9a304c
 # ╠═3a745c16-4dad-4b23-b12e-4a2d45d8c061
-# ╠═da90cfbb-a2b4-4748-beb1-f03cd87735a8
-# ╠═66e56611-6bd7-41a9-a9f4-144589859f6b
-# ╠═a5f17f65-6f3e-46f8-b154-d7dad9c20848
-# ╠═644a54be-e4e5-42b6-89f5-84c21c6589fb
 # ╟─7ac03a08-0ff8-4dfd-9766-d12f12de75ae
 # ╠═a1b9c50c-7756-4c83-be9f-15faf291773d
-# ╠═be792622-d111-4d82-a4cb-4cd5167b5f0d
 # ╟─932d8ef8-5a3c-4a0e-939f-30a059fae242
-# ╟─61207c2e-59c7-4951-91c4-95673efab1b1
-# ╟─ef5462dd-c9cb-45ba-9082-1b574e86e41f
-# ╟─785d3c48-b14e-4987-97e5-694cf4b95f71
 # ╠═61926b15-da07-49fc-a488-3d135707b882
 # ╟─3a68235c-3049-4f5e-8cbb-a744661ba914
-# ╟─b9015d7c-7082-4216-b9c9-bb98ed24fdf7
-# ╟─ca542769-a5e2-4db1-a0af-f0502ae4de58
-# ╟─ad6c5458-b20d-4d28-a933-f686a9d64214
 # ╠═8a074363-d831-44c1-8854-9142c1e02cae
-# ╠═41a37d06-5599-4ab8-af75-4059333ea9b1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
