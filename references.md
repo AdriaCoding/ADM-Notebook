@@ -322,9 +322,9 @@ Once we have this predicted |test| output set, we compare it against the real
 
 ### Improving the model - Tuning parameters
 
-| #epochs | Optimizer (learning rate) | Window size | hiddenNeurons |                                  MSE                                 |
+| #epochs | Optimizer (learning rate) | Window size | hiddenNeurons |                   MSE(Hares) + MSE(Lynx) = MSE total                 |
 |:-------:|:-------------------------:|:-----------:|:-------------:|:--------------------------------------------------------------------:|
-|   1000  |   Gradient_Descent(0.01)  |      3      |       15      |  1345 + 266 = 1611  (BAD - GD gives  a straight line as prediction!) |
+|   1000  |   GD(0.01)  |      3      |       15      |  1345 + 266 = 1611  (BAD - GD gives  a straight line as prediction!) |
 |   1000  |         ADAM(0.01)        |      3      |       15      |                           880 + 176 = 1056                           |
 |   100   |         ADAM(0.01)        |      3      |       15      |                          1150 + 589 = 1739.8                         |
 |   500   |         ADAM(0.01)        |      3      |       15      |                           781 + 284 = 1066                           |
@@ -337,11 +337,38 @@ Once we have this predicted |test| output set, we compare it against the real
 |   200   |         ADAM(0.01)        |      3      |       15      |                          1116 + 373 = 1116                           |
 |   200   |         ADAM(0.01)        |      3      |       5       |                 1225 (quite flat shape of the curve)                 |
 |   200   |         ADAM(0.01)        |      3      |       25      |                                 1244                                 |
-|   500   |         ADAM(0.01)        |      3      |       25      |                                 888                                  |
+|   500   |         ADAM(0.01)        |      3      |       25      |                           712 + 218 = 930                            |
 
 
+As described in our prediction model there are many tunnable paramters. 
+The tunning process to select a combination that provides a good enough model in
+terms of the prediction of the test dataset is described in the previous table. 
+From the experiments done we derived the following in relation with the different parameters:
 
+- Optimizer: ADAM (ADaptive Moment Estimation) is preferrable over GD (Gradient Descent),
+since for the last many more epochs of training were needed to produce similar MSEs, 
+also GD tended to produce straight lines as prediction, which of course are 
+far to match the periodicity seen in our data.
 
+- Window size: 3 was the preferred size, since higher window sizes tended to
+show overfitting in the training dataset, and the model was not able to generalize
+for the prediction of the testing values. Intuituively, small window sizes
+are better due to the nature of our time series periodicity (see it in `Visualization of the entire dataset` subsection).
+
+- HiddenNeurons: In relation with the neurons on the hidden layer of the MLP,
+it was observed that a high number tended to produce overfitting on the training
+data whereas a low number tended to produce underfitting shown in a quite 
+flat shape of the prediction curve. Therefore an "intermediate" number (e.g. 15~30)
+was selected.
+
+- `#epochs`: The behavior in this case was similar as the described for the `hiddenNeurons`,
+meaning that a high number of epochs tended to produce an overfitted model and a
+low number of epochs tended to produce an underfitted model. Therefore, the preferred
+number of epochs was selected to be ~500.
+
+So far, with these experiments we managed to obtain a total MSE (`MSE(hares) + MSE(lynx)`)
+of `930`, with: `#epochs = 500`, `optimizer = ADAM(0.01)`, `window = 3` and 
+`hiddenNeurons = 25`.
 
 
 
