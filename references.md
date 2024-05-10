@@ -325,9 +325,8 @@ Once we have this predicted |test| output set, we compare it against the real
 | #epochs | Optimizer (learning rate) | Window size | hiddenNeurons |                                  MSE                                 |
 |:-------:|:-------------------------:|:-----------:|:-------------:|:--------------------------------------------------------------------:|
 |   1000  |   Gradient_Descent(0.01)  |      3      |       15      |  1345 + 266 = 1611  (BAD - GD gives  a straight line as prediction!) |
-|   100   |         ADAM(0.01)        |      3      |       15      |                          1150 + 589 = 1739.8                         |
-|   500   |         ADAM(0.01)        |      3      |       15      |                           781 + 284 = 1066                           |
 |   1000  |         ADAM(0.01)        |      3      |       15      |                           880 + 176 = 1056                           |
+|   100   |         ADAM(0.01)        |      3      |       15      |                          1150 + 589 = 1739.8                         |
 |   500   |         ADAM(0.01)        |      3      |       15      |                           781 + 284 = 1066                           |
 |   500   |         ADAM(0.01)        |      10     |      150      |    9729 + 1941 = 11671  (overfitted - error ~ 0 for train dataset)   |
 |   500   |         ADAM(0.01)        |      10     |       50      |  8335 + 5048 = 13383  (overfitted - error ~ 10^-2 for train dataset) |
