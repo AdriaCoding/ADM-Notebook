@@ -15,13 +15,6 @@ u0 = Float32[df_train.hare[1], df_train.lynx[1]]
 tspan = Float32.((0.0, size(df_train)[1]-1))
 train_years = rawdata.year[1:45]
 
-## Define flux Neural Net
-NN = Chain(Dense(2, 5, tanh_fast), Dense(5, 2))
-p, st = Lux.setup(rng, NN)
-
-## 'NeuralODE' model
-prob_neuralode = NeuralODE(NN, tspan, Tsit5(); saveat = 1)
-
 function predict_neuralode(p)
     Array(prob_neuralode(u0, p, st)[1])
 end
@@ -34,29 +27,39 @@ end
 
 # Do not plot by default for the documentation
 # Users should change doplot=true to see the plots callbacks
-callback = function (p, l, pred; doplot = true)
+callback = function (p, l, pred; doplot = false)
     println(l)
     # plot current prediction against data
     if doplot
-        plt = plot(train_years, transpose(pred), labels=["x(t)" "y(t)"])
-        scatter!(plt, train_years, true_values[1, :]; label = "hare")
-        scatter!(plt, train_years, true_values[2, :]; label = "lynx")
+        plt = plot(train_years, transpose(pred),
+            labels=["x(t)" "y(t)"], ylim=(0, 150))
+        scatter!(plt, train_years, true_values[1, :]; 
+            label = "hare", color=:green)
+        scatter!(plt, train_years, true_values[2, :];
+            label = "lynx", color=:red2)
 
         display(plt)
     end
     return false
 end
+## Define flux Neural Net
+NN = Chain(Dense(2, 16, leakyrelu), Dense(16, 2))
+p, st = Lux.setup(rng, NN)
+p = p |> ComponentArray
 
-pinit = ComponentArray(p)
-callback(pinit, loss_neuralode(pinit)...; doplot = true)
+## 'NeuralODE' model
+prob_neuralode = NeuralODE(NN, tspan, Tsit5(); saveat = 1)
+
+callback(p, loss_neuralode(p)...; doplot = true)
+
 
 # use Optimization.jl to solve the problem
 adtype = Optimization.AutoZygote()
 
 optf = Optimization.OptimizationFunction((x, p) -> loss_neuralode(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, pinit)
+optprob = Optimization.OptimizationProblem(optf, p)
 
-result_neuralode = Optimization.solve(optprob, Optimisers.Adam(0.05); callback = callback,
+result_neuralode = Optimization.solve(optprob, Optimisers.Adam(); callback = callback,
     maxiters = 200)
 
 optprob2 = remake(optprob; u0 = result_neuralode.u)
