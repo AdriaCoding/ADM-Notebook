@@ -217,18 +217,6 @@ md"**2. Definition of the loss function**
 MSE between the model predicted values (`ŷ1`, `ŷ2` = model(x)) and the target values: `y1, y2`.
 "
 
-# ╔═╡ 7e35d18a-ad8a-497a-aeca-a32e2cce16f4
-# ╠═╡ disabled = true
-#=╠═╡
-loss_ab(x,y) = Flux.Losses.mse(model_ab(x), y) 
-  ╠═╡ =#
-
-# ╔═╡ 1fcb4488-b46a-47cf-83b8-85a97e052423
-function loss_ab(x,y) 
-	pred = model_ab(x)
-	return mean((pred .- y).^2)
-end
-
 # ╔═╡ 6753be48-af78-42aa-9f0d-028498a3bcd3
 md"**3. Optimizer**  
 
@@ -246,6 +234,7 @@ data_pair_ab = [(X_ab,Y_ab)]
 md"**Training loop**"
 
 # ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
+#=╠═╡
 begin
 		# TODO: Variate the # of epochs
 		epochs = 100
@@ -254,6 +243,7 @@ begin
 			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
 		end
 end
+  ╠═╡ =#
 
 # ╔═╡ e1ce5c16-c38a-47d9-a78a-a0e8552b0178
 md"#### Testing the model
@@ -610,41 +600,13 @@ md"""
 Switch to different optimizer lol
 """
 
-# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
-# ╠═╡ disabled = true
-#=╠═╡
-adtype = Optimization.AutoForwardDiff()
-  ╠═╡ =#
-
 # ╔═╡ 3e94f5b7-5c00-4eb5-91d4-890be641b0b5
 plot_trajectory( predict_neuralode(result_neuralode2.u))
-
-# ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
-begin
-	adtype = Optimization.AutoZygote()
-	
-	optf = Optimization.OptimizationFunction((x, p) -> loss_neuralode(x), adtype)
-	optprob = Optimization.OptimizationProblem(optf, pinit)
-	
-end
-
-
-
-# ╔═╡ 6b550704-5e9c-4bfd-9b49-239029b789b3
-#=╠═╡
-loss(pguess)
-  ╠═╡ =#
 
 # ╔═╡ f8e99383-f22b-4cf5-97f1-304a3c901883
 # ╠═╡ disabled = true
 #=╠═╡
 result_ode
-  ╠═╡ =#
-
-# ╔═╡ 7c37627b-f771-4084-9163-08e361723bbc
-# ╠═╡ disabled = true
-#=╠═╡
-optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
   ╠═╡ =#
 
 # ╔═╡ 5a3e7c61-0837-476f-9488-cd553ca566c4
@@ -664,6 +626,11 @@ function plot_trajectories_old(y, pred)
 	axislegend(ax3; position=:rt)
 	return fig_node
 end
+
+# ╔═╡ 6b550704-5e9c-4bfd-9b49-239029b789b3
+#=╠═╡
+loss(pguess)
+  ╠═╡ =#
 
 # ╔═╡ 90b70812-4f93-4950-b253-60d3b4d09949
 # ╠═╡ disabled = true
@@ -734,6 +701,14 @@ We believe that model will be able to approximate the trajectory, as it has alre
 We have already tried to implement it, but we faced some issues. Our goal is to fix the bugs and present the model for the following delivery.
 """
 
+# ╔═╡ 1fcb4488-b46a-47cf-83b8-85a97e052423
+#=╠═╡
+function loss_ab(x,y) 
+	pred = model_ab(x)
+	return mean((pred .- y).^2)
+end
+  ╠═╡ =#
+
 # ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
 begin
 	true_values = transpose(Matrix(df_train))
@@ -743,6 +718,31 @@ begin
 	    return loss, pred
 	end
 end
+
+# ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
+#=╠═╡
+begin
+	adtype = Optimization.AutoZygote()
+	
+	optf = Optimization.OptimizationFunction((x, p) -> loss_neuralode(x), adtype)
+	optprob = Optimization.OptimizationProblem(optf, pinit)
+	
+end
+
+
+  ╠═╡ =#
+
+# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
+# ╠═╡ disabled = true
+#=╠═╡
+adtype = Optimization.AutoForwardDiff()
+  ╠═╡ =#
+
+# ╔═╡ 7c37627b-f771-4084-9163-08e361723bbc
+# ╠═╡ disabled = true
+#=╠═╡
+optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
+  ╠═╡ =#
 
 # ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
 begin
@@ -758,6 +758,12 @@ begin
 		return loss, sol  
 	end
 end
+
+# ╔═╡ 7e35d18a-ad8a-497a-aeca-a32e2cce16f4
+# ╠═╡ disabled = true
+#=╠═╡
+loss_ab(x,y) = Flux.Losses.mse(model_ab(x), y) 
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
