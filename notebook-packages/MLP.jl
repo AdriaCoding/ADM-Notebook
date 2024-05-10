@@ -678,6 +678,16 @@ callback = function (p, l, sol)
 end
   ╠═╡ =#
 
+# ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
+begin
+	true_values = transpose(Matrix(df_train))
+	function loss_neuralode(p)
+	    pred = predict_neuralode(p)
+	    loss = sum(abs2, true_values .- pred)
+	    return loss, pred
+	end
+end
+
 # ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
 begin
 	true_values = transpose(Matrix(df))
@@ -690,16 +700,6 @@ begin
 				return Inf, sol
 		end
 		return loss, sol  
-	end
-end
-
-# ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
-begin
-	true_values = transpose(Matrix(df_train))
-	function loss_neuralode(p)
-	    pred = predict_neuralode(p)
-	    loss = sum(abs2, true_values .- pred)
-	    return loss, pred
 	end
 end
 
