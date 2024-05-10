@@ -263,8 +263,8 @@ md"**3. Optimizer**
 - More advanced optimizers: ADAM (ADaptive Moment Estimation)"
 
 # ╔═╡ 81812092-33a3-49a2-89ed-6b79ccc685bc
-#optimizer_ab = Descent(0.01)
-optimizer_ab = ADAM(0.01)
+#optimizer_ab = Flux.Descent(0.01)
+optimizer_ab = Flux.ADAM(0.01)
 
 # ╔═╡ 38b3a708-4bfc-44c7-805f-82d505f8ced3
 data_pair_ab = [(X_ab,Y_ab)]
@@ -456,6 +456,7 @@ end
 
 # ╔═╡ 79427815-d276-4169-aa18-8e97a5e30775
 md"""
+## Fun interactivity
 With Pluto.jl, we can get some interactivity to test out how the values for the parameters affect the final solution!
 
 Click and drag on the values of the parameters...
@@ -515,6 +516,8 @@ md"""
 md"""
 Our goal is to estimate the 'best' parameters for the Lokta-Volterra system, such that when we solve the differential equations we get trajectories as close as possible to our data.
 
+## Model setup
+
 We define an ODE problem with the setup provided by the DifferentialEquations package, with respect to an initial guess.
 """
 
@@ -537,12 +540,12 @@ Then, we need to define a criteria for _fitness_, a **loss function**.
 
 Where $\hat{x}, \hat{y}$ represent our date points and $x(t), y(t)$ are the solutions to the Lokta-Volterra systems with the given parameters.
 
-Note that at every call of `direct_loss`, we solve the differential equation. 
+Note that at every call of `direct_loss`, we solve the differential equation. We use the `Rosenbrock23` solver, which should work well for stiff ODEs.
 """
 
 # ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
 begin
-	true_values = transpose(Matrix(df))
+	true_values = transpose(Matrix(df_train))
 	function direct_loss(newp)
 	    newprob = remake(ode_problem, p = newp)
 	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
@@ -555,18 +558,43 @@ begin
 	end
 end
 
-# ╔═╡ 8b30b9a6-b482-4252-ab99-60effead691a
-data = solve(ode_problem, saveat = 1) |> Array
+# ╔═╡ 8bf0bd9a-4b6d-4d92-a5c9-25e411b09c5a
+md"""
+We now define some utility functions.
+"""
+
+# ╔═╡ 44ff87d8-50df-41c4-a3b4-af96e2e29438
+function plot_trajectories(y, pred)
+    n = size(y, 2)
+    m = size(pred,2)
+    years = rawdata.year
+	fig_node = Figure()
+	ax3 = GLMakie.Axis(fig_node[1,1], xlabel="Year", ylabel="Thousands of Animals")
+	GLMakie.ylims!(ax3,0,150)
+	
+    GLMakie.lines!(ax3, years[1:m], pred[1,:], label="x(t)")
+	GLMakie.lines!(ax3, years[1:m], pred[2,:], label="y(t)")
+    GLMakie.scatter!(ax3, years[1:n], y[1, :]; 
+    label = "hare", color=:green)
+    GLMakie.scatter!(ax3, years[1:n], y[2, :];
+    label = "lynx", color=:red2)
+    axislegend(ax3; position=:rt)
+    display(fig_node)
+	return fig_node
+end
 
 # ╔═╡ 71ae0908-006c-4d69-a78d-b2c59141f74d
 callback = function (p, l, sol)
-    println(typeof(p))
-	println(typeof(l))
-	println(typeof(sol))
+    println(l)
     # Tell Optimization.solve to not halt the optimization. If return true, then
     # optimization stops.
     return false
 end
+
+# ╔═╡ 0c2fd122-eea2-4fdd-ad40-f7a7c320279c
+md"""
+## Training the model
+"""
 
 # ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
 begin
@@ -575,12 +603,25 @@ begin
 end
 
 # ╔═╡ cc0600c6-3ffc-4708-bc56-61308aecdd65
-# ╠═╡ disabled = true
-#=╠═╡
-result_ode = Optimization.solve(optprob, PolyOpt(),
+optimized_params = Optimization.solve(optprob, PolyOpt(),
                                 callback = callback,
-                                maxiters = 2)
-  ╠═╡ =#
+                                maxiters = 500)
+
+# ╔═╡ aaa44f97-abf2-485e-a9d7-6a8fae3ed3a1
+optimized_params.u
+
+# ╔═╡ 5acae76b-13a7-4e5d-85a9-3126f379902b
+md"""
+The resulting "optimized" parameters yield the following trajectories:
+"""
+
+# ╔═╡ ebcffde3-d01b-4059-8eda-87218363f2d2
+begin
+		newprob = remake(ode_problem, p = optimized_params)
+	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
+		pred  = mapreduce(permutedims, vcat, sol.u)'
+		plot_trajectories(true_values, pred )
+end
 
 # ╔═╡ fa4a629b-28f5-4007-8c8a-9682497c4d72
 md"""
@@ -603,26 +644,6 @@ We will use `DiffEqFlux.jl` to declare our NODEs, and the NN framework `Lux.jl` 
 
 We start by defining a custom wrapper function `neural_ode` that will initialize our NeuralODE and its parameters, algong with other utility functions.
 """
-
-# ╔═╡ 44ff87d8-50df-41c4-a3b4-af96e2e29438
-function plot_trajectories(y, pred)
-    n = size(y, 2)
-    m = size(pred,2)
-    years = rawdata.year
-	fig_node = Figure()
-	ax3 = GLMakie.Axis(fig_node[1,1], xlabel="Year", ylabel="Thousands of Animals")
-	GLMakie.ylims!(ax3,0,150)
-	
-    GLMakie.lines!(ax3, years[1:m], pred[1,:], label="x(t)")
-	GLMakie.lines!(ax3, years[1:m], pred[2,:], label="y(t)")
-    GLMakie.scatter!(ax3, years[1:n], y[1, :]; 
-    label = "hare", color=:green)
-    GLMakie.scatter!(ax3, years[1:n], y[2, :];
-    label = "lynx", color=:red2)
-    axislegend(ax3; position=:rt)
-    display(fig_node)
-	return fig_node
-end
 
 # ╔═╡ f2e13bc3-d3ca-43be-852c-5ab16f7648cd
 md"""
@@ -719,24 +740,24 @@ md"""
 # ╔═╡ 8b145699-98b8-456a-a526-a987a34cfbdb
 begin
 	node_small, p_small, state_small = neural_ode(t_train[1:5], 2)
-    p_small, state, pred_small = train_one_round( node_small, p_small, state_small, 		true_values[:,1:5], 2, 1e-2)
+    p_small, state, pred_small = train_one_round( node_small, p_small, state_small,
+        true_values[:,1:5], 20, 1e-1)
     plot_trajectories(true_values[:,1:5], pred_small)
 end
 
 # ╔═╡ f5317563-b27b-4490-8be3-bd16e4e73457
 md"""
-### Using all the data points
+### Using some more  data points...
 """
 
 # ╔═╡ be9d4488-d43d-4cef-9a2b-5c4e774fd8b8
 begin
-	node_large, p_large, state_large = neural_ode(t_train, 2)
-    p_large, state_large, pred_large = train_one_round( node_large, p_large, state_large,			true_values[:, 1:45], 2, 1e-2)
-    plot_trajectories(true_values[:,1:45], pred_large)
+    sample_size = 15
+	node_large, p_large, state_large = neural_ode(t_train[1:sample_size], 2)
+    p_large, state_large, pred_large = train_one_round( node_large, p_large, state_large, 
+        true_values[:, 1:sample_size], 20, 1e-1)
+    plot_trajectories(true_values[:,1:sample_size], pred_large)
 end
-
-# ╔═╡ 709d2a0e-50e1-4498-b0cd-13ac16cd7b21
-true_values[:,1:45]
 
 # ╔═╡ bb8f83c0-6c60-431e-ad0e-d6f761eb907d
 md"""
@@ -4226,15 +4247,19 @@ version = "3.5.0+0"
 # ╠═f5507c07-8bd2-4808-8681-c07a32f5fe3b
 # ╟─cc725260-e780-495e-817d-6950622949ef
 # ╠═a69aaafa-ac8e-4031-b997-8e9c227e3987
-# ╠═8b30b9a6-b482-4252-ab99-60effead691a
+# ╟─8bf0bd9a-4b6d-4d92-a5c9-25e411b09c5a
+# ╠═44ff87d8-50df-41c4-a3b4-af96e2e29438
 # ╠═71ae0908-006c-4d69-a78d-b2c59141f74d
+# ╟─0c2fd122-eea2-4fdd-ad40-f7a7c320279c
 # ╠═38ed433a-b084-403a-bc2f-0890a7b52353
 # ╠═cc0600c6-3ffc-4708-bc56-61308aecdd65
+# ╠═aaa44f97-abf2-485e-a9d7-6a8fae3ed3a1
+# ╟─5acae76b-13a7-4e5d-85a9-3126f379902b
+# ╠═ebcffde3-d01b-4059-8eda-87218363f2d2
 # ╟─fa4a629b-28f5-4007-8c8a-9682497c4d72
 # ╟─9c4a8da9-6b02-428c-9479-e0536fb67519
 # ╠═01e51c71-ad3b-4f82-924b-edd8d0232e11
 # ╠═62557d5e-5d63-4f9b-af67-2df2ae01c28d
-# ╠═44ff87d8-50df-41c4-a3b4-af96e2e29438
 # ╟─f2e13bc3-d3ca-43be-852c-5ab16f7648cd
 # ╠═78b0e77b-1746-4528-bb08-b761ef088c84
 # ╠═61ffd079-9e80-4102-8e81-77b32afac384
@@ -4246,7 +4271,6 @@ version = "3.5.0+0"
 # ╠═8b145699-98b8-456a-a526-a987a34cfbdb
 # ╟─f5317563-b27b-4490-8be3-bd16e4e73457
 # ╠═be9d4488-d43d-4cef-9a2b-5c4e774fd8b8
-# ╠═709d2a0e-50e1-4498-b0cd-13ac16cd7b21
 # ╟─bb8f83c0-6c60-431e-ad0e-d6f761eb907d
 # ╟─ea0f5380-38af-4c15-a5f0-5cba16cce1cb
 # ╟─678a5e7e-52cc-4ee8-9779-ba486fe26d63
