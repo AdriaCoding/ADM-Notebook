@@ -185,7 +185,25 @@ First, we need to define a criteria for _fitness_, a **loss function**.
 Where $\hat{x}, \hat{y}$ represent our date points and $x(t), y(t)$ are the solutions to the Lokta-Volterra systems with the given parameters.
 """
 
+# ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
+#=╠═╡
+begin
+	true_values = transpose(Matrix(df))
+	function loss(newp)
+	    newprob = remake(prob, p = newp)
+	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
+		
+	    loss = try sum(abs2, sol .- true_values) 
+		catch e
+				return Inf, sol
+		end
+		return loss, sol  
+	end
+end
+  ╠═╡ =#
+
 # ╔═╡ fe07b7b0-024a-4651-880f-b0e79662634b
+# ╠═╡ disabled = true
 #=╠═╡
 loss(p)
   ╠═╡ =#
@@ -195,10 +213,45 @@ md"""
 The optimization framework uses Automatic Differentiation to obtain the objective gradients. We will be using the 'Zygote' backend.
 """
 
+# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
+# ╠═╡ disabled = true
+#=╠═╡
+adtype = Optimization.AutoForwardDiff()
+  ╠═╡ =#
+
 # ╔═╡ ff35d4cf-3a80-4dda-92f5-cff14ecd9016
 # ╠═╡ disabled = true
 #=╠═╡
 pguess = [1.0, 0.1, 1.0 ,0.1]
+  ╠═╡ =#
+
+# ╔═╡ b3febfd2-21cb-44d1-ba58-98ee7f8f2e58
+#=╠═╡
+optprob = Optimization.OptimizationProblem(optf, pguess)
+  ╠═╡ =#
+
+# ╔═╡ 90b70812-4f93-4950-b253-60d3b4d09949
+# ╠═╡ disabled = true
+#=╠═╡
+callback = function (p, l, sol)
+	# Tell Optimization.solve to not halt the optimization. If return true, then
+	# optimization stops.
+	if l == Inf 
+		@info "el solver falló. Terminating..."
+		return true
+	else
+	    println(l)
+	    plt = Plots.plot(sol, ylim = (0, 150), label = "Current Prediction")
+	    Plots.scatter!(plt, true_values, label = "data")
+		return false
+	end
+    
+end
+  ╠═╡ =#
+
+# ╔═╡ cf44dd16-7da1-4450-aa27-312c72c0b31b
+#=╠═╡
+callback(pguess, loss(pguess)...)
   ╠═╡ =#
 
 # ╔═╡ 6b550704-5e9c-4bfd-9b49-239029b789b3
@@ -229,8 +282,17 @@ function predict_neuralode(params)
     Array(prob_neuralode(u0, params, state)[1])
 end
 
+# ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
+begin
+	true_values = transpose(Matrix(df_train))
+	function loss_neuralode(p)
+	    pred = predict_neuralode(p)
+	    loss = sum(abs2, true_values .- pred)
+	    return loss, pred
+	end
+end
+
 # ╔═╡ 2d69e051-7651-4e37-9f00-ff5ba23ee74a
-#=╠═╡
 function plot_trajectory(pred)
 	fig_node = Figure()
 	ax3 = GLMakie.Axis(fig_node[1,1],
@@ -244,42 +306,36 @@ function plot_trajectory(pred)
 	axislegend(ax3; position=:rt)
 	return fig_node
 end
-  ╠═╡ =#
 
-# ╔═╡ cf44dd16-7da1-4450-aa27-312c72c0b31b
-#=╠═╡
-callback(pguess, loss(pguess)...)
-  ╠═╡ =#
+# ╔═╡ 3cd69d7c-dc4b-4fa6-a6ba-db5c96209bb4
+callback = function (p, l, pred)
+    println(l)
+    # plot current prediction against data
+    return false
+end
 
 # ╔═╡ da15b2a3-7da6-4e08-9a11-b8376dea06b6
 pinit = ComponentArray(NNparams)
 
 # ╔═╡ d9a1c0f7-da3d-4956-b353-20033ed0ce52
-#=╠═╡
 plot_trajectory(predict_neuralode(pinit))
-  ╠═╡ =#
 
 # ╔═╡ 8ec0d06f-01b6-417c-aec7-cbd66f4c41a5
-#=╠═╡
 result_ode = Optimization.solve(optprob, callback=callback,
                                 maxiters = 100)
-  ╠═╡ =#
 
 # ╔═╡ f8e99383-f22b-4cf5-97f1-304a3c901883
+# ╠═╡ disabled = true
 #=╠═╡
 result_ode
   ╠═╡ =#
 
 # ╔═╡ a166b6b1-8f4d-4cbf-b384-a2e2e168c195
-#=╠═╡
 result_neuralode = Optimization.solve(optprob, Optimisers.Adam(0.05); 
 	callback = callback, maxiters = 200)
-  ╠═╡ =#
 
 # ╔═╡ 8e0fd028-4d94-430d-9b09-1c3bbe1c7c34
-#=╠═╡
 plot_trajectory( predict_neuralode(result_neuralode.u))
-  ╠═╡ =#
 
 # ╔═╡ 811af0da-0077-4ca0-8f86-4a1712dd48b0
 md"""
@@ -287,27 +343,24 @@ Switch to different optimizer lol
 """
 
 # ╔═╡ 6aa8cf03-1a52-4000-8f81-963b2f7bb19e
-#=╠═╡
 optprob2 = remake(optprob; u0 = result_neuralode.u)
-  ╠═╡ =#
 
 # ╔═╡ c8d80e93-705f-4549-a16b-c56858cb990c
-#=╠═╡
 result_neuralode2 = Optimization.solve(optprob2, Optim.BFGS(; initial_stepnorm = 0.01); callback, allow_f_increases = false)
-  ╠═╡ =#
 
 # ╔═╡ 3e94f5b7-5c00-4eb5-91d4-890be641b0b5
-#=╠═╡
 plot_trajectory( predict_neuralode(result_neuralode2.u))
-  ╠═╡ =#
 
 # ╔═╡ 5a3e7c61-0837-476f-9488-cd553ca566c4
-#=╠═╡
 length(result_neuralode2.u.layer_1[:])
+
+# ╔═╡ 7c37627b-f771-4084-9163-08e361723bbc
+# ╠═╡ disabled = true
+#=╠═╡
+optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
   ╠═╡ =#
 
 # ╔═╡ 38ed433a-b084-403a-bc2f-0890a7b52353
-#=╠═╡
 begin
 	adtype = Optimization.AutoZygote()
 	
@@ -315,80 +368,6 @@ begin
 	optprob = Optimization.OptimizationProblem(optf, pinit)
 	
 end
-  ╠═╡ =#
-
-# ╔═╡ 7c37627b-f771-4084-9163-08e361723bbc
-#=╠═╡
-optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
-  ╠═╡ =#
-
-# ╔═╡ 7d11f193-1c22-41d7-a29d-d6c5a1051b59
-# ╠═╡ disabled = true
-#=╠═╡
-adtype = Optimization.AutoForwardDiff()
-  ╠═╡ =#
-
-# ╔═╡ 2112b7df-4470-4748-9334-a77fb0cbc119
-#=╠═╡
-begin
-	true_values = transpose(Matrix(df_train))
-	function loss_neuralode(p)
-	    pred = predict_neuralode(p)
-	    loss = sum(abs2, true_values .- pred)
-	    return loss, pred
-	end
-end
-  ╠═╡ =#
-
-# ╔═╡ 3cd69d7c-dc4b-4fa6-a6ba-db5c96209bb4
-#=╠═╡
-callback = function (p, l, pred)
-    println(l)
-    # plot current prediction against data
-    return false
-end
-  ╠═╡ =#
-
-# ╔═╡ b3febfd2-21cb-44d1-ba58-98ee7f8f2e58
-#=╠═╡
-optprob = Optimization.OptimizationProblem(optf, pguess)
-  ╠═╡ =#
-
-# ╔═╡ 90b70812-4f93-4950-b253-60d3b4d09949
-# ╠═╡ disabled = true
-#=╠═╡
-callback = function (p, l, sol)
-	# Tell Optimization.solve to not halt the optimization. If return true, then
-	# optimization stops.
-	if l == Inf 
-		@info "el solver falló. Terminating..."
-		return true
-	else
-	    println(l)
-	    plt = Plots.plot(sol, ylim = (0, 150), label = "Current Prediction")
-	    Plots.scatter!(plt, true_values, label = "data")
-		return false
-	end
-    
-end
-  ╠═╡ =#
-
-# ╔═╡ a69aaafa-ac8e-4031-b997-8e9c227e3987
-#=╠═╡
-begin
-	true_values = transpose(Matrix(df))
-	function loss(newp)
-	    newprob = remake(prob, p = newp)
-	    sol = solve(newprob, Rosenbrock23(autodiff=false), saveat = 1)
-		
-	    loss = try sum(abs2, sol .- true_values) 
-		catch e
-				return Inf, sol
-		end
-		return loss, sol  
-	end
-end
-  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
