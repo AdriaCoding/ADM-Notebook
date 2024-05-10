@@ -7,7 +7,7 @@ using Plots, DataFrames
 rawdata = read("datasets/Leigh1968_harelynx.csv", DataFrame)
 df = mapcols(x -> Float64.(x .÷ 1000), rawdata[:,[:hare, :lynx]])
 df_train = df[1:45,:]
-y_train = transpose(Matrix(df_train))
+u_train = transpose(Matrix(df_train))
 t_train = Array(0.0:Float64(size(df_train)[1]-1))
 train_years = rawdata.year[1:45]
 
@@ -36,7 +36,7 @@ end
 
 function train_one_round(node, p, st, y, maxiters, lr)
     pred(p) = Array(node(u0, p, st)[1])
-    loss(p) = sum(abs2, pred(p) .- y)/length(y_train)
+    loss(p) = sum(abs2, pred(p) .- y)/length(u_train)
     callback(p, l) = begin
         println(l)
         plot_trajectories(y, pred(p))
@@ -88,6 +88,6 @@ function plot_trajectories(y, pred)
 end
 
 prediction = predict(u0, t_train)
-plot_trajectories(y_train, prediction)
+plot_trajectories(u_train, prediction)
 
-res = train(y_train, t_train)
+res = train(u_train, t_train)
