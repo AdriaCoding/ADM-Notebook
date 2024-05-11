@@ -90,4 +90,4 @@ end
 prediction = predict(u0, t_train)
 plot_trajectories(u_train, prediction)
 
-res = train(u_train, t_train)
+res = train(u_train[:,1:27], t_train[1:27])

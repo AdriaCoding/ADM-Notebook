@@ -69,7 +69,7 @@ Basically the idea is to implement and compare these two different models. The f
 "
 
 # ╔═╡ babeac0c-aac9-4725-88b7-6a8d9008d6c0
-md"# MLP - Basic model"
+md"# Multi Layer Perceptron"
 
 # ╔═╡ a9b0ae89-13d4-48b3-8e98-e9a1a714b0b4
 md"## Dataset preparation"
@@ -4185,7 +4185,7 @@ version = "3.5.0+0"
 # ╟─c7d33b11-b9dc-46eb-af1a-ae46d34cc8cc
 # ╠═7ec43186-e751-4789-9429-5d557d028310
 # ╟─cf284032-5236-48d1-93a3-fd1286e27a12
-# ╟─babeac0c-aac9-4725-88b7-6a8d9008d6c0
+# ╠═babeac0c-aac9-4725-88b7-6a8d9008d6c0
 # ╟─a9b0ae89-13d4-48b3-8e98-e9a1a714b0b4
 # ╟─5aa263f7-fb27-43f2-abe9-733140d8a0ca
 # ╠═e920cd2f-c996-4e67-81ab-5e98fb17d386
