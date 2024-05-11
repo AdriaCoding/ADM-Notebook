@@ -630,7 +630,7 @@ dotrain ? optimized_params.u : optimized_params
 
 # ╔═╡ 5acae76b-13a7-4e5d-85a9-3126f379902b
 md"""
-The resulting "optimized" parameters yield the following trajectories:
+When the nº of iterations is too large, the salver always ends up printing warnings. The resulting "optimized" parameters yield the following trajectories:
 """
 
 # ╔═╡ ebcffde3-d01b-4059-8eda-87218363f2d2
@@ -733,23 +733,35 @@ end
 
 # ╔═╡ f6ff8dc9-34e2-4190-a3af-06ead47850f8
 md"""
-### Using only the first 5 data points  
+### Using only the first 5 data points (goes wrong) 
 """
 
 # ╔═╡ c2695519-a00e-48c0-a3ee-2be273c087ee
 @bind train_small_node PlutoUI.CheckBox(default=false)
 
 # ╔═╡ 8b145699-98b8-456a-a526-a987a34cfbdb
-if dotrain | train_small_node
+if train_small_node
 	sample_size = 10
 	node_small, θ, st = neural_ode(t_train[1:sample_size], 2)
 	println("Loss values")
-    θ, st, _ = train( node_small, θ, st, true_values[:, 1:sample_size], 200, 1e-2)
+    θ, st, _ = train( node_small, θ, st, true_values[:, 1:sample_size], 50, 1e-2)
 	
     plot_trajectories(true_values, predict(u0, t_train, θ, st))
 else
 	md"Activate the Button above to launch only this training."
 end
+
+# ╔═╡ d006cbf1-d8a3-4bdd-af82-7def5b31c4a4
+md"""
+Our implementation seems to be faulty at some point, as it should not take this long. Further exploration of SCIML librararies would be needed.
+
+To speed things up, we run a this model on a strong computer in a single Julia script file outside of this notebook (NewNODE.jl, can be found in the repository). The results obtained were quite surprising, as the orbits seem to converge to an attractor fixed point.
+
+
+"""
+
+# ╔═╡ 25f5efa5-30f5-4b1a-ac5c-8fa4b0c80487
+load("./images/node-orbit.png")
 
 # ╔═╡ bb8f83c0-6c60-431e-ad0e-d6f761eb907d
 md"""
@@ -4265,8 +4277,10 @@ version = "3.5.0+0"
 # ╟─f6ff8dc9-34e2-4190-a3af-06ead47850f8
 # ╟─c2695519-a00e-48c0-a3ee-2be273c087ee
 # ╠═8b145699-98b8-456a-a526-a987a34cfbdb
-# ╠═bb8f83c0-6c60-431e-ad0e-d6f761eb907d
-# ╟─ea0f5380-38af-4c15-a5f0-5cba16cce1cb
+# ╟─d006cbf1-d8a3-4bdd-af82-7def5b31c4a4
+# ╟─25f5efa5-30f5-4b1a-ac5c-8fa4b0c80487
+# ╟─bb8f83c0-6c60-431e-ad0e-d6f761eb907d
+# ╠═ea0f5380-38af-4c15-a5f0-5cba16cce1cb
 # ╟─678a5e7e-52cc-4ee8-9779-ba486fe26d63
 # ╟─434d990e-e534-4b9b-867d-11cf8389c43b
 # ╟─6a1ae815-69c1-4b2b-900c-2312a2409485
