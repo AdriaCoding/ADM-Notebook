@@ -1,4 +1,7 @@
 # Algorithms for Data ~~Mining~~ Science project
+
+*Authors: Adrià Lisa Bou & Fernando Martín Canfrán*
+
 For the first deliverable of the project we used Julia, and a notebook environment similar to Jupyter named Pluto. The notebook in question is called "MLP.jl", you can find it in the notebook-packages directory.
 
 To reproduce our code, you might need to intall Julia along with the Pluto.jl package
