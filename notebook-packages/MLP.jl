@@ -16,8 +16,13 @@ end
 
 # ╔═╡ 3bf3affe-2da7-4017-a6c6-eb26bc112810
 begin
-	using Flux, DataFrames, GLMakie, Images, FileIO, ImageShow, DifferentialEquations, ModelingToolkit, PlutoUI, Optimization, ComponentArrays, OptimizationPolyalgorithms,  OptimizationOptimJL, OptimizationOptimisers, ForwardDiff, Lux, Random, DiffEqFlux
+	using Flux, DataFrames, GLMakie, Images, FileIO, ImageShow, DifferentialEquations, ModelingToolkit, PlutoUI, Optimization, ComponentArrays, ForwardDiff, Lux, Random, DiffEqFlux
 	using Statistics: mean; using CSV: read
+	import OptimizationPolyalgorithms.PolyOpt
+	import OptimizationOptimisers.ADAMW
+	import Optimisers.Adam
+	import Optim.BFGS
+	PlutoUI.TableOfContents()
 end
 
 # ╔═╡ 22a12f5f-5f00-465f-abc8-e884628d67e2
@@ -28,14 +33,23 @@ For this project we are going to need _a lot_ of dependencies...
 Don't be surprised if loading them all takes +10 minutes. You can observe the progress in the `Status` window at the bottom-right.
 "
 
-# ╔═╡ 8cfc1a2b-fc89-427f-b8f8-d9ee1da793b7
-PlutoUI.TableOfContents()
+# ╔═╡ 06b33784-afbe-42d8-b9d7-226a0edafb03
+md"""
+By default, the notebook wil not be running the cells with the trainings - they can also take a relatively long time 🐢. 
+
+If you wish to commence all the training processes, just click on the next checkbox.
+"""
+
+# ╔═╡ f15768ac-90df-4971-a345-5435f0ecae4a
+@bind dotrain PlutoUI.CheckBox(default=false)
 
 # ╔═╡ c7d33b11-b9dc-46eb-af1a-ae46d34cc8cc
 md"# Introduction
-The present project consists in the development of differents models for time series prediction. The time series that we want to predict are a  [Predator-Prey model](http://www.scholarpedia.org/article/Predator-prey_model) kind of time series. Each time series represent the number of a particular species at a certain moment, with one of the species being the predator and the other being the prey. Therefore, they deal with the general loss-win interactions and hence may have applications outside of ecosystems. 
+The present project consists in shocasing differents models for time series prediction. 
 
+The time series that we want to predict comes from [Predator-Prey model](http://www.scholarpedia.org/article/Predator-prey_model). Each series represents the population of a particular species at a certain moment, with one of the species being the predator 🐆 and the other being the prey 🐇.
 
+Therefore, they deal with the general loss-win interactions and hence may have applications outside of ecosystems. 
 "
 
 # ╔═╡ 7ec43186-e751-4789-9429-5d557d028310
@@ -47,11 +61,11 @@ end
 
 # ╔═╡ cf284032-5236-48d1-93a3-fd1286e27a12
 md"
-The proposed models to make the predictions of this kind relationed time series are:
+The proposed models to make the predictions of this time series are:
 - Basic full machine learning model: MLP (Multilayer Perceptron)
 - Informed model (Neural ODEs model, based on Lotka-Volterra equations)
 
-Basically the idea is to implement and compare these two different models. The first is a full ML model, which learns only from the data using a MLP model. The second is a more informed model, which makes use of the knowledge we have of the nature of these kind of time series, that is, knowing that they represent a predator-prey model.
+Basically the idea is to implement and compare these two different models. The first is a full ML model, which learns only from the data using a MLP model. The second is a more informed model, which makes use of the knowledge we have of the dynammics of these kind of time series, that is, modeling them with an Ordinary Differential Equation (ODE).
 "
 
 # ╔═╡ babeac0c-aac9-4725-88b7-6a8d9008d6c0
@@ -189,7 +203,7 @@ Y_ab = vcat(Y_a, Y_b)
 
 # ╔═╡ d44f537b-264d-4a5d-985a-f246ca12b75b
 md"
-#### Training the model
+## Training the model
 *train!(loss, params, data, opt; cb)* 
 
 *Flux train function*:
@@ -203,7 +217,9 @@ A callback is given with the keyword argument `cb`.
 "
 
 # ╔═╡ 96017ab0-367b-49fe-9ebe-9963aca2cbf8
-md"**1. MLP definition** 
+md"
+## Model setup
+**1. MLP structure** 
 
 *Chain -> to stack layers, Dense -> fully connected neural network layers*
 
@@ -273,7 +289,7 @@ data_pair_ab = [(X_ab,Y_ab)]
 md"**Training loop**"
 
 # ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
-begin
+if dotrain
 		# TOTRY: Variate the # of epochs
 		epochs = 500
 		for epoch in 1:epochs
@@ -283,7 +299,9 @@ begin
 end
 
 # ╔═╡ e1ce5c16-c38a-47d9-a78a-a0e8552b0178
-md"#### Testing the model
+md"
+
+## Testing the model
 
 We are going to build the predictions of the test values, for 🐇 and 🐆, with the constructed model and then check the error obtained in terms of the difference with the real test values for those years. 
 
@@ -603,12 +621,12 @@ begin
 end
 
 # ╔═╡ cc0600c6-3ffc-4708-bc56-61308aecdd65
-optimized_params = Optimization.solve(optprob, PolyOpt(),
-                                callback = callback,
-                                maxiters = 500)
+optimized_params = if dotrain 
+	Optimization.solve(optprob, PolyOpt(), callback = callback, maxiters = 500)
+	else  pguess end
 
 # ╔═╡ aaa44f97-abf2-485e-a9d7-6a8fae3ed3a1
-optimized_params.u
+dotrain ? optimized_params.u : optimized_params
 
 # ╔═╡ 5acae76b-13a7-4e5d-85a9-3126f379902b
 md"""
@@ -662,7 +680,7 @@ end
 # ╔═╡ 01e51c71-ad3b-4f82-924b-edd8d0232e11
 function neural_ode(t, data_dim)
     f = Lux.Chain(
-        Lux.Dense(data_dim, 5, Lux.swish),
+        Lux.Dense(data_dim, 5, Lux.tanh),
         Lux.Dense(5, data_dim)
     )
 
@@ -671,9 +689,9 @@ function neural_ode(t, data_dim)
         saveat=t,
         abstol=1e-9, reltol=1e-9
     )
-    p, state = Lux.setup(rng, f)
+    θ, state = Lux.setup(rng, f)
 
-    return node, ComponentArray(p), state
+    return node, ComponentArray(θ), state
 end
 
 # ╔═╡ 62557d5e-5d63-4f9b-af67-2df2ae01c28d
@@ -697,79 +715,54 @@ For this setup, we will use a `callback` function to print the values of the los
 """
 
 # ╔═╡ f4017dce-3179-45d1-bc9e-7a367d637114
-function train_one_round(node, p, st, y, maxiters, lr)
+function train(node, p, st, y, maxiters, lr)
     pred(p) = Array(node(u0, p, st)[1])
     loss(p) = sum(abs2, pred(p) .- y)/length(u_train)
     callback(p, l) = begin
-        println(l)
+        display(l)
         return false
     end
     adtype = Optimization.AutoZygote()
     optf = OptimizationFunction((p, _ ) -> loss(p), adtype)
     optprob = OptimizationProblem(optf, p)
-    res = solve(optprob, Optimisers.ADAMW(lr), maxiters=maxiters, callback=callback)
-    return res.u, st, pred(p)
+    res = solve(optprob, Adam(lr), maxiters=maxiters, callback=callback)
+	#res = solve(optprob, BFGS(), maxiters=maxiters, callback=callback)
+	return res.u, st, pred(p)
 end
 
-
-# ╔═╡ 6e994f72-4dd4-43c1-805c-2d1d2dddc66e
-# ╠═╡ disabled = true
-#=╠═╡
-function train(y, t, maxiters = 150, lr = 1e-2)
-    p=nothing
-    state=nothing
-    
-    for k in 3:3:length(t_train)
-        println("Training batch of first $k values")
-        node, p_new, state_new = neural_ode(t[1:k], size(y, 1))
-        if p === nothing p = p_new end
-        if state === nothing state = state_new end
-
-        p, state, pred = train_one_round( node, p, state, y[:,1:k], maxiters, lr)
-        plot_trajectories(y, pred)
-    end
-    p, state
-end
-  ╠═╡ =#
 
 # ╔═╡ f6ff8dc9-34e2-4190-a3af-06ead47850f8
 md"""
 ### Using only the first 5 data points  
 """
 
+# ╔═╡ c2695519-a00e-48c0-a3ee-2be273c087ee
+@bind train_small_node PlutoUI.CheckBox(default=false)
+
 # ╔═╡ 8b145699-98b8-456a-a526-a987a34cfbdb
-begin
-	node_small, p_small, state_small = neural_ode(t_train[1:5], 2)
-    p_small, state, pred_small = train_one_round( node_small, p_small, state_small,
-        true_values[:,1:5], 20, 1e-1)
-    plot_trajectories(true_values[:,1:5], pred_small)
-end
-
-# ╔═╡ f5317563-b27b-4490-8be3-bd16e4e73457
-md"""
-### Using some more  data points...
-"""
-
-# ╔═╡ be9d4488-d43d-4cef-9a2b-5c4e774fd8b8
-begin
-    sample_size = 15
-	node_large, p_large, state_large = neural_ode(t_train[1:sample_size], 2)
-    p_large, state_large, pred_large = train_one_round( node_large, p_large, state_large, 
-        true_values[:, 1:sample_size], 20, 1e-1)
-    plot_trajectories(true_values[:,1:sample_size], pred_large)
+if dotrain | train_small_node
+	sample_size = 10
+	node_small, θ, st = neural_ode(t_train[1:sample_size], 2)
+	println("Loss values")
+    θ, st, _ = train( node_small, θ, st, true_values[:, 1:sample_size], 200, 1e-2)
+	
+    plot_trajectories(true_values, predict(u0, t_train, θ, st))
+else
+	md"Activate the Button above to launch only this training."
 end
 
 # ╔═╡ bb8f83c0-6c60-431e-ad0e-d6f761eb907d
 md"""
 # Conclusions
-The MLP model was successfull in the series forecast, and quite easy to implement compared to the ODE models.
+The MLP model was successfull in the series forecast, and quite easy to implement compared to the ODE models. However, we noted that the results were somewhat _erratic_, in the sense that they were very dependent on the randomized initialization of the parameters. 
 
 From the beggining, we were aware that it is impossible to find values for the parameters (α , β, δ, γ) producing Lokta-Volterra ODE perfectly fitting our data. What we did not expect is that the potential _stiffness_ of ODE would end up breaking the Optimization scheme.
 
-Our NeuralODE model was able to learn the curves when it was fed a a small quantity of data, but performed rather disappointingly when the training data was extended beyond *. 
-We believe that the issue comes from the fact that NeuralODE do not (by default) hold the same Universal Approximation Properties as Neural Networks. This has been studied by several authors, the latest work to our knowledge is by [Teshima et. al.](https://arxiv.org/abs/2012.02414).
+Our NeuralODE performed rather disappointingly. Our implementations was very slow, compared to the other methods, and still we were not able to find a convincing result.
 
 ## Future work
+
+We believe that the issue comes from the fact that NeuralODE do not (by default) hold the same Universal Approximation Properties as Neural Networks. This has been studied by several authors, the latest work to our knowledge is by [Teshima et. al.](https://arxiv.org/abs/2012.02414).
 
 ### Augmentation
 
@@ -825,8 +818,9 @@ ImageShow = "4e3cecfd-b093-5904-9786-8bbb286a6a31"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
-OptimizationOptimJL = "36348300-93cb-4f02-beb5-3c3902f8871e"
 OptimizationOptimisers = "42dfb2eb-d2b4-4451-abcd-913932933ac1"
 OptimizationPolyalgorithms = "500b13db-7e66-49ce-bda4-eed966be6282"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -847,8 +841,9 @@ ImageShow = "~0.3.8"
 Images = "~0.26.1"
 Lux = "~0.5.42"
 ModelingToolkit = "~9.13.0"
+Optim = "~1.9.4"
+Optimisers = "~0.3.3"
 Optimization = "~3.24.3"
-OptimizationOptimJL = "~0.2.3"
 OptimizationOptimisers = "~0.2.1"
 OptimizationPolyalgorithms = "~0.2.0"
 PlutoUI = "~0.7.59"
@@ -860,7 +855,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.3"
 manifest_format = "2.0"
-project_hash = "31e14ad479b33d4ca17749ac18dc0b57ccbc8fac"
+project_hash = "c344dfdd3b07224459faaf1a0b96eaeb4a923406"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "016833eb52ba2d6bea9fcb50ca295980e728ee24"
@@ -4185,9 +4180,10 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─22a12f5f-5f00-465f-abc8-e884628d67e2
 # ╠═3bf3affe-2da7-4017-a6c6-eb26bc112810
-# ╠═8cfc1a2b-fc89-427f-b8f8-d9ee1da793b7
+# ╟─06b33784-afbe-42d8-b9d7-226a0edafb03
+# ╠═f15768ac-90df-4971-a345-5435f0ecae4a
 # ╟─c7d33b11-b9dc-46eb-af1a-ae46d34cc8cc
-# ╟─7ec43186-e751-4789-9429-5d557d028310
+# ╠═7ec43186-e751-4789-9429-5d557d028310
 # ╟─cf284032-5236-48d1-93a3-fd1286e27a12
 # ╟─babeac0c-aac9-4725-88b7-6a8d9008d6c0
 # ╟─a9b0ae89-13d4-48b3-8e98-e9a1a714b0b4
@@ -4266,12 +4262,10 @@ version = "3.5.0+0"
 # ╠═14b92513-f2ab-4d60-9772-eebbdce50f99
 # ╟─33e16c9b-2d18-4e88-89fc-5845500532e6
 # ╠═f4017dce-3179-45d1-bc9e-7a367d637114
-# ╟─6e994f72-4dd4-43c1-805c-2d1d2dddc66e
 # ╟─f6ff8dc9-34e2-4190-a3af-06ead47850f8
+# ╟─c2695519-a00e-48c0-a3ee-2be273c087ee
 # ╠═8b145699-98b8-456a-a526-a987a34cfbdb
-# ╟─f5317563-b27b-4490-8be3-bd16e4e73457
-# ╠═be9d4488-d43d-4cef-9a2b-5c4e774fd8b8
-# ╟─bb8f83c0-6c60-431e-ad0e-d6f761eb907d
+# ╠═bb8f83c0-6c60-431e-ad0e-d6f761eb907d
 # ╟─ea0f5380-38af-4c15-a5f0-5cba16cce1cb
 # ╟─678a5e7e-52cc-4ee8-9779-ba486fe26d63
 # ╟─434d990e-e534-4b9b-867d-11cf8389c43b
