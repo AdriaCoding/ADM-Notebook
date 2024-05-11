@@ -32,6 +32,6 @@ Or equivalently, after pressing ``]``
 
 Now you can laung a Pluto session from localhost with
 ```
-julia> using PLuto; Pluto.run()
+julia> using Pluto; Pluto.run()
 ```
 and just by entering your local path to ``notebook-packages/MLP.jl`` you can edit, run and replicate our work.
