@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.41
+# v0.19.42
 
 using Markdown
 using InteractiveUtils
@@ -277,14 +277,14 @@ data_pair_ab = [(X_ab,Y_ab)]
 md"**Training loop**"
 
 # ╔═╡ 1fb5ba25-e9bd-418c-8606-52db645bf290
-#=╠═╡
-if dotrain
-		# TOTRY: Variate the # of epochs
-		epochs = 500
-		for epoch in 1:epochs
-			Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
-			println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
-		end
+begin
+	# TOTRY: Variate the # of epochs
+	epochs = 500
+	for epoch in 1:epochs
+		Flux.train!(loss_ab, ps_ab, data_pair_ab, optimizer_ab)
+		println("Epoch $epoch, Loss: $(loss_ab(X_ab,Y_ab))")
+	end
+	
 end
   ╠═╡ =#
 

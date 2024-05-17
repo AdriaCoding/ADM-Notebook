@@ -1,4 +1,7 @@
 # Algorithms for Data ~~Mining~~ Science project
+
+*Authors: Adrià Lisa Bou & Fernando Martín Canfrán*
+
 For the first deliverable of the project we used Julia, and a notebook environment similar to Jupyter named Pluto. The notebook in question is called "MLP.jl", you can find it in the notebook-packages directory.
 
 To reproduce our code, you might need to intall Julia along with the Pluto.jl package
@@ -32,6 +35,6 @@ Or equivalently, after pressing ``]``
 
 Now you can laung a Pluto session from localhost with
 ```
-julia> using PLuto; Pluto.run()
+julia> using Pluto; Pluto.run()
 ```
 and just by entering your local path to ``notebook-packages/MLP.jl`` you can edit, run and replicate our work.
