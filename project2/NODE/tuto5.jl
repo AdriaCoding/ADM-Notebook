@@ -1,9 +1,6 @@
-using DiffEqFlux, OrdinaryDiffEq, Statistics, LinearAlgebra, Plots, LuxCUDA, Random
+using DiffEqFlux, OrdinaryDiffEq, Statistics, LinearAlgebra, Plots, Random
 using MLUtils, ComponentArrays
 using Optimization, OptimizationOptimisers, IterTools
-
-const cdev = cpu_device()
-const gdev = gpu_device()
 
 function random_point_in_sphere(dim, min_radius, max_radius)
     distance = (max_radius - min_radius) .* (rand(Float32, 1) .^ (1.0f0 / dim)) .+
@@ -27,11 +24,11 @@ function concentric_sphere(dim, inner_radius_range, outer_radius_range,
     end
     data = cat(data...; dims = 2)
     labels = cat(labels...; dims = 2)
-    return DataLoader((data |> gdev, labels |> gdev); batchsize = batch_size,
+    return DataLoader((data , labels); batchsize = batch_size,
         shuffle = true, partial = false)
 end
 
-diffeqarray_to_array(x) = gdev(x.u[1])
+diffeqarray_to_array(x) = x.u[1]
 
 function construct_model(out_dim, input_dim, hidden_dim, augment_dim)
     input_dim = input_dim + augment_dim
@@ -47,7 +44,7 @@ function construct_model(out_dim, input_dim, hidden_dim, augment_dim)
     node = augment_dim == 0 ? node : AugmentedNDELayer(node, augment_dim)
     model = Chain(node, diffeqarray_to_array, Dense(input_dim, out_dim))
     ps, st = Lux.setup(Xoshiro(0), model)
-    return model, ps |> gdev, st |> gdev
+    return model, ps , st
 end
 
 function plot_contour(model, ps, st, npoints = 300)
@@ -59,7 +56,7 @@ function plot_contour(model, ps, st, npoints = 300)
         grid_points[:, idx] .= [x1, x2]
         idx += 1
     end
-    sol = reshape(model(grid_points |> gdev, ps, st)[1], npoints, npoints) |> cdev
+    sol = reshape(model(grid_points, ps, st)[1], npoints, npoints)
 
     return contour(x, y, sol; fill = true, linewidth = 0.0)
 end
@@ -83,16 +80,18 @@ model, ps, st = construct_model(1, 2, 64, 0)
 opt = OptimizationOptimisers.Adam(0.005)
 
 loss_node(model, dataloader.data[1], dataloader.data[2], ps, st)
+plt_node = plot_contour(model, ps, st)
 
 println("Training Neural ODE")
 
 optfunc = OptimizationFunction(
     (x, p, data, target) -> loss_node(model, data, target, x, st),
     Optimization.AutoZygote())
-optprob = OptimizationProblem(optfunc, ComponentArray(ps |> cdev) |> gdev)
+optprob = OptimizationProblem(optfunc, ComponentArray(ps))
 res = solve(optprob, opt, IterTools.ncycle(dataloader, 5); callback = cb)
 
 plt_node = plot_contour(model, res.u, st)
+
 
 model, ps, st = construct_model(1, 2, 64, 1)
 opt = OptimizationOptimisers.Adam(0.005)
@@ -103,7 +102,7 @@ println("Training Augmented Neural ODE")
 optfunc = OptimizationFunction(
     (x, p, data, target) -> loss_node(model, data, target, x, st),
     Optimization.AutoZygote())
-optprob = OptimizationProblem(optfunc, ComponentArray(ps |> cdev) |> gdev)
+optprob = OptimizationProblem(optfunc, ComponentArray(ps))
 res = solve(optprob, opt, IterTools.ncycle(dataloader, 5); callback = cb)
 
 plot_contour(model, res.u, st)
