@@ -55,7 +55,7 @@ initial_sol = solve(prob_nn, Rosenbrock23(), saveat = t)
 function predict(θ; ODEalg = AutoTsit5(Rodas5()), u0=u0, T = t)
     _prob = remake(prob_nn, u0 = u0 , tspan = (T[1], T[end]), p = θ)
     Array(solve(_prob, ODEalg, saveat = T,
-    abstol = 1e-2, reltol = 1e-2,
+    abstol = 1e-6, reltol = 1e-6,
     sensealg=QuadratureAdjoint(autojacvec=ReverseDiffVJP(true))))
 end
 
@@ -101,16 +101,16 @@ callback = function (opt_state, l; doplot=true)
 end
 
 # train this model!!
-maxiters = 5000
+maxiters = 500
 
-adtype = Optimization.AutoZygote()
-optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
-optprob = Optimization.OptimizationProblem(optf, p)
-res1 = Optimization.solve(optprob, ADAM(0.1), callback = callback, maxiters = maxiters)
+adtype = Optimization.AutoZygote();
+optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype);
+optprob = Optimization.OptimizationProblem(optf, p);
+res1 = Optimization.solve(optprob, ADAM(0.1), callback = callback, maxiters = maxiters);
 println("Training loss after $(length(losses)) iterations: $(losses[end])")
 
-optprob2 = Optimization.OptimizationProblem(optf, res1.u)
-res2 = Optimization.solve(optprob2, Optim.LBFGS(), callback = callback, maxiters = maxiters)
+optprob2 = Optimization.OptimizationProblem(optf, res1.u);
+res2 = Optimization.solve(optprob2, Optim.LBFGS(), callback = callback, maxiters = maxiters);
 println("Final training loss after $(length(losses)) iterations: $(losses[end])")
 
 # Set final value for the trained parameters
