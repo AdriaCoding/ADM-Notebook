@@ -23,11 +23,11 @@ tspan = (0.0, Float32(size(df)[1]) - 1)
 p = [2.0, 0.1, 4.0, 0.1]
 
 # Setup the ODE problem, then solve
-#=
+
 prob = ODEProblem(lotka_volterra!, u0, tspan, p)
-datasol = solve(prob, saveat = 1)
-data = Array(datasol)
-=#
+#datasol = solve(prob, saveat = 1)
+#data = Array(datasol)
+
 datasol = Matrix(df)
 data = transpose(Matrix(df))
 ## Now do the optimization process
@@ -53,13 +53,14 @@ pguess = [2.1, 0.1, 4.0, 0.1]
 optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype)
 optprob = Optimization.OptimizationProblem(optf, pguess)
 
+using OptimizationOptimisers
  
-result_ode = Optimization.solve(optprob, PolyOpt(),
+result_ode = Optimization.solve(optprob, ADAM(),
                                 callback = callback,
-                                maxiters = 20000)
+                                maxiters = 2000)
 
 final_ode = ODEProblem(lotka_volterra!, u0, tspan, result_ode.u)
 final_sol = solve(final_ode, saveat = 0.01)
-plt = plot(final_sol, ylim = (0, 150), label = "Current Prediction")
-scatter!(plt, datasol, label = "data")
+plt = plot(final_sol, ylim = (0, 150), label = ["Predicted hares trajectory" "Predicted lynx trajectory"])
+scatter!(plt, datasol, label = ["hares data" "lynx data"])
 display(plt)

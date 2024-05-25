@@ -52,7 +52,7 @@ prob_nn = ODEProblem(ude_dynamics!, u0, tspan, p)
 
 initial_sol = solve(prob_nn, Rosenbrock23(), saveat = t)
 
-function predict(θ; ODEalg = AutoTsit5(Rodas5()), u0=u0, T = t)
+function predict(θ; ODEalg = AutoTsit5(Vern7()), u0=u0, T = t)
     _prob = remake(prob_nn, u0 = u0 , tspan = (T[1], T[end]), p = θ)
     Array(solve(_prob, ODEalg, saveat = T,
     abstol = 1e-6, reltol = 1e-6,
@@ -106,11 +106,11 @@ maxiters = 500
 adtype = Optimization.AutoZygote();
 optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype);
 optprob = Optimization.OptimizationProblem(optf, p);
-res1 = Optimization.solve(optprob, ADAM(0.1), callback = callback, maxiters = maxiters);
+res1 = Optimization.solve(optprob, ADAM(0.01), callback = callback, maxiters = 1000);
 println("Training loss after $(length(losses)) iterations: $(losses[end])")
 
 optprob2 = Optimization.OptimizationProblem(optf, res1.u);
-res2 = Optimization.solve(optprob2, Optim.LBFGS(), callback = callback, maxiters = maxiters);
+res2 = Optimization.solve(optprob2, Optim.BFGS(initial_stepnorm=0.1f0), callback = callback, maxiters = 100);
 println("Final training loss after $(length(losses)) iterations: $(losses[end])")
 
 # Set final value for the trained parameters
@@ -118,17 +118,24 @@ println("Final training loss after $(length(losses)) iterations: $(losses[end])"
 p_trained = res2.u
 
 #Compare with test data 
-test_size = size(df, 1)
+test_data = df |> Array |> transpose;
+test_size = size(test_data, 2);
+🐒 =  predict(p_trained; T=range(tspan[2]+1, test_size-1 |> Float32, length=test_size-train_size));
+🐒 = 🐒 .* scale'
+MSE = sum(abs2, 🐒 .- test_data[:,train_size+1:end]) / (2*test_size)
+println("MSE: ", MSE)
+hares_MSE = sum(abs2, 🐒[1,:] .- test_data[1,train_size+1:end]) / (test_size)
+lynx_MSE = sum(abs2, 🐒[2,:] .- test_data[2,train_size+1:end]) / (test_size)
+🐒
 begin
     # First, plot the data 
-    test_data = df ./ scale |> Array |> transpose
     scatter(rawdata.year, test_data[1,:], label="Hares", lw=2)
     scatter!(rawdata.year, test_data[2,:], label="Lynx", lw=2)
-
+    
     # Make new predictions 
-    test_t = Array(range(0.0f0, test_size-1 |> Float32, length=test_size*resolution))
-    test_years = test_t .+ rawdata.year[1] 
-    test_pred = predict(p_trained, AutoTsit5(Rodas5()), test_data[:,1], test_t)
+    test_plot_t = Array(range(0.0f0, test_size-1 |> Float32, length=test_size*resolution))
+    test_years = test_plot_t .+ rawdata.year[1] 
+    test_pred = predict(p_trained; ODEalg=Tsit5(), T=test_plot_t) .* scale'
     sep = length(plot_years)
     test_pred[1,1:sep]
     plot!(test_years[1:sep], test_pred[1,1:sep], label="Hares (pred)", color="blue", lw=1)
@@ -139,4 +146,6 @@ begin
     plot!(test_years[sep:end], test_pred[1,sep:end], label=nothing, color="blue", lw=1, linestyle=:dash)
     plot!(test_years[sep:end], test_pred[2,sep:end], label=nothing, color="red", lw=1, linestyle=:dash)
     title!("Hares and Lynx population")
+    xlabel!("Year")
+    ylabel!("Population (in thousands)")
 end
