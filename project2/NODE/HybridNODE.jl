@@ -50,9 +50,7 @@ function ude_dynamics!(du, u, p, t)
 end
 prob_nn = ODEProblem(ude_dynamics!, u0, tspan, p)
 
-initial_sol = solve(prob_nn, Rosenbrock23(), saveat = t)
-
-function predict(θ; ODEalg = AutoTsit5(Vern7()), u0=u0, T = t)
+function predict(θ; ODEalg = AutoTsit5(Rosenbrock23()), u0=u0, T = t)
     _prob = remake(prob_nn, u0 = u0 , tspan = (T[1], T[end]), p = θ)
     Array(solve(_prob, ODEalg, saveat = T,
     abstol = 1e-6, reltol = 1e-6,
@@ -60,9 +58,11 @@ function predict(θ; ODEalg = AutoTsit5(Vern7()), u0=u0, T = t)
 end
 
 # Test the speed of several stiff ODE solvers.
-#algs = [Rosenbrock23(), Rodas4(), Rodas5(), AutoTsit5(Rosenbrock23()),  AutoTsit5(Rodas4()), AutoTsit5(Rodas5())];
+#algs = [Rosenbrock23(), Tsit5(), Rodas5(), AutoTsit5(Rosenbrock23()),  AutoTsit5(Rodas4()), AutoTsit5(Rodas5())];
 # To see reliable reults, run this line more than once.
-#[@elapsed predict(p; ODEalg= alg) for alg in algs]'
+#[@elapsed predict(p; ODEalg= alg) for alg in algs];
+#[@elapsed predict(p; ODEalg= alg) for alg in algs]
+#[@elapsed predict(p; ODEalg= alg) for alg in algs]
 
 # Re-use the plot of the training data to paint new predicitons on top of it.
 # Set up an increased time span to see the predictions more smoothly.
@@ -118,19 +118,23 @@ plot(log10.(losses), label = nothing, xlabel="Iterations", ylabel="log-Loss")
 p_trained = res1.u
 
 #Compare with test data 
-test_data = df |> Array |> transpose;
-test_size = size(test_data, 2);
-t_test = range(tspan[2]+1, test_size-1 |> Float32, length=test_size-train_size)
-test_pred =  predict(p_trained; T=t_test, u0=normalized_data[:,end]);
-test_pred = test_pred .* scale'
-MSE = sum(abs2, test_pred .- test_data[:,train_size+1:end]) / (2*test_size)
+begin
+    test_data = df |> Array |> transpose;
+    test_size = size(test_data, 2);
+    t_test = range(tspan[2]+1, test_size-1 |> Float32, length=test_size-train_size)
+    test_pred =  predict(p_trained; T=t_test, u0=normalized_data[:,end]);
+    test_pred = test_pred .* scale'
+    MSE = sum(abs2, test_pred .- test_data[:,train_size+1:end]) / (2*test_size)
+    hares_MSE = sum(abs2, test_pred[1,:] .- test_data[1,train_size+1:end]) / (test_size)
+    lynx_MSE = sum(abs2, test_pred[2,:] .- test_data[2,train_size+1:end]) / (test_size)
+end 
+
 println("MSE: ", MSE)
-hares_MSE = sum(abs2, test_pred[1,:] .- test_data[1,train_size+1:end]) / (test_size)
-lynx_MSE = sum(abs2, test_pred[2,:] .- test_data[2,train_size+1:end]) / (test_size)
-test_pred
 println("Hares MSE: $hares_MSE --> Avergage error: $(sqrt(hares_MSE))")
 println("Lynx  MSE: $lynx_MSE --> Avergage error: $(sqrt(lynx_MSE))")
+println("Lokta-Volterra parameters: $(p_trained.LV)")
 
+# Final Figure with results againts the test data
 begin
     # First, plot the data 
     scatter(rawdata.year, test_data[1,:], label="Hares", lw=2)
@@ -153,6 +157,9 @@ begin
     xlabel!("Year")
     ylabel!("Population (in thousands)")
 end
+
+
+# EXTRAS
 # Visualize the physics-informed model p_trained.LV = [α, β, δ, γ]
 begin
     function lotka_volterra!(du, u, p, t)
@@ -170,21 +177,19 @@ begin
 end
 
 # Visualize the trained neural network as a 2D function
-f(x, y) = begin
-   _x, _y = U(Float32.([x,y]), p_trained.NN, st)[1]
-   sqrt(_x^2 + _y^2)
+begin
+    f(x, y) = begin
+    _x, _y = U(Float32.([x,y]), p_trained.NN, st)[1]
+    sqrt(_x^2 + _y^2)
+    end
+    surface(-1:0.01:1, -1:0.01:1, f, c=:viridis, xlabel="Hares", ylabel="Lynx", zlabel="|f(x,y)|")
+    f(u) = -f(u[1], u[2])
+    using Optim
+    optsol = optimize(f,[0.0, 0.0] )
 end
-surface(-1:0.01:1, -1:0.01:1, f, c=:viridis, xlabel="Hares", ylabel="Lynx", zlabel="|f(x,y)|")
-f(u) = -f(u[1], u[2])
-using Optim
-optsol = optimize(f,[0.0, 0.0] )
-f(optsol.minimizer)
-x, y = U(Float32.(optsol.minimizer), p_trained.NN, st)[1]
-sqrt(x^2 + y^2)
+println("Maximum value of ||NN|| in the unit square: $(f(optsol.minimizer))")
 
 # Baseline model?
-test_data
-μ = [sum(test_data[i,:])/57 for i in 1:2]
-μ.-test_data
-baseline_MSE = [sum(abs2, μ.-test_data)/57 for i in 1:2]
-baseline_average_error = [sqrt(baseline_MSE[i]) for i in 1:2]
+μ = [sum(test_data[i,:])/57 for i in 1:2]; @show μ;
+@show baseline_MSE = sum(abs2, μ.-test_data)/57;
+@show baseline_average_error = sqrt(baseline_MSE);
