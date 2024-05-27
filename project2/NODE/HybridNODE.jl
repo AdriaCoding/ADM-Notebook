@@ -60,9 +60,9 @@ function predict(θ; ODEalg = AutoTsit5(Vern7()), u0=u0, T = t)
 end
 
 # Test the speed of several stiff ODE solvers.
-algs = [Rosenbrock23(), Rodas4(), Rodas5(), AutoTsit5(Rosenbrock23()),  AutoTsit5(Rodas4()), AutoTsit5(Rodas5())];
+#algs = [Rosenbrock23(), Rodas4(), Rodas5(), AutoTsit5(Rosenbrock23()),  AutoTsit5(Rodas4()), AutoTsit5(Rodas5())];
 # To see reliable reults, run this line more than once.
-[@elapsed predict(p; ODEalg= alg) for alg in algs]'
+#[@elapsed predict(p; ODEalg= alg) for alg in algs]'
 
 # Re-use the plot of the training data to paint new predicitons on top of it.
 # Set up an increased time span to see the predictions more smoothly.
@@ -90,8 +90,8 @@ callback = function (opt_state, l; doplot=true)
     if opt_state.iter % 100 == 0
         println("Current loss after $(opt_state.iter) iterations: $(l)")
     end
+    push!(losses, l)
     if opt_state.iter % 10 == 0
-        push!(losses, l)
         if doplot
             p = opt_state.u
             paint(p)
@@ -101,32 +101,36 @@ callback = function (opt_state, l; doplot=true)
 end
 
 # train this model!!
-maxiters = 500
-
 adtype = Optimization.AutoZygote();
 optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype);
 optprob = Optimization.OptimizationProblem(optf, p);
 res1 = Optimization.solve(optprob, ADAM(0.01), callback = callback, maxiters = 1000);
-println("Training loss after $(length(losses)) iterations: $(losses[end])")
 
+# Second training phase with BFGS was discarded as it loed to overfitting. 
+#=
 optprob2 = Optimization.OptimizationProblem(optf, res1.u);
-res2 = Optimization.solve(optprob2, Optim.BFGS(initial_stepnorm=0.1f0), callback = callback, maxiters = 100);
+res2 = Optimization.solve(optprob2, Optim.BFGS(initial_stepnorm=0.1f0), callback = callback, maxiters = 200);
 println("Final training loss after $(length(losses)) iterations: $(losses[end])")
+=#
 
 # Set final value for the trained parameters
-
-p_trained = res2.u
+plot(log10.(losses), label = nothing, xlabel="Iterations", ylabel="log-Loss")
+p_trained = res1.u
 
 #Compare with test data 
 test_data = df |> Array |> transpose;
 test_size = size(test_data, 2);
-🐒 =  predict(p_trained; T=range(tspan[2]+1, test_size-1 |> Float32, length=test_size-train_size));
-🐒 = 🐒 .* scale'
-MSE = sum(abs2, 🐒 .- test_data[:,train_size+1:end]) / (2*test_size)
+t_test = range(tspan[2]+1, test_size-1 |> Float32, length=test_size-train_size)
+test_pred =  predict(p_trained; T=t_test, u0=normalized_data[:,end]);
+test_pred = test_pred .* scale'
+MSE = sum(abs2, test_pred .- test_data[:,train_size+1:end]) / (2*test_size)
 println("MSE: ", MSE)
-hares_MSE = sum(abs2, 🐒[1,:] .- test_data[1,train_size+1:end]) / (test_size)
-lynx_MSE = sum(abs2, 🐒[2,:] .- test_data[2,train_size+1:end]) / (test_size)
-🐒
+hares_MSE = sum(abs2, test_pred[1,:] .- test_data[1,train_size+1:end]) / (test_size)
+lynx_MSE = sum(abs2, test_pred[2,:] .- test_data[2,train_size+1:end]) / (test_size)
+test_pred
+println("Hares MSE: $hares_MSE --> Avergage error: $(sqrt(hares_MSE))")
+println("Lynx  MSE: $lynx_MSE --> Avergage error: $(sqrt(lynx_MSE))")
+
 begin
     # First, plot the data 
     scatter(rawdata.year, test_data[1,:], label="Hares", lw=2)
@@ -134,18 +138,53 @@ begin
     
     # Make new predictions 
     test_plot_t = Array(range(0.0f0, test_size-1 |> Float32, length=test_size*resolution))
-    test_years = test_plot_t .+ rawdata.year[1] 
-    test_pred = predict(p_trained; ODEalg=Tsit5(), T=test_plot_t) .* scale'
+    finalplot_years = test_plot_t .+ rawdata.year[1] 
+    plot_trajectories = predict(p_trained; ODEalg=Tsit5(), T=test_plot_t) .* scale'
     sep = length(plot_years)
-    test_pred[1,1:sep]
-    plot!(test_years[1:sep], test_pred[1,1:sep], label="Hares (pred)", color="blue", lw=1)
-    plot!(test_years[1:sep], test_pred[2,1:sep], label="Lynx (pred)", color="red", lw=1)
+    plot_trajectories[1,1:sep]
+    plot!(finalplot_years[1:sep], plot_trajectories[1,1:sep], label="Hares (NODE)", color="blue", lw=1)
+    plot!(finalplot_years[1:sep], plot_trajectories[2,1:sep], label="Lynx (NODE)", color="red", lw=1)
 
-    test_pred[1,sep:end]
-    test_years[sep:end]
-    plot!(test_years[sep:end], test_pred[1,sep:end], label=nothing, color="blue", lw=1, linestyle=:dash)
-    plot!(test_years[sep:end], test_pred[2,sep:end], label=nothing, color="red", lw=1, linestyle=:dash)
+    plot_trajectories[1,sep:end]
+    finalplot_years[sep:end]
+    plot!(finalplot_years[sep:end], plot_trajectories[1,sep:end], label=nothing, color="blue", lw=1, linestyle=:dash)
+    plot!(finalplot_years[sep:end], plot_trajectories[2,sep:end], label=nothing, color="red", lw=1, linestyle=:dash)
     title!("Hares and Lynx population")
     xlabel!("Year")
     ylabel!("Population (in thousands)")
 end
+# Visualize the physics-informed model p_trained.LV = [α, β, δ, γ]
+begin
+    function lotka_volterra!(du, u, p, t)
+        x, y = u
+        α, β, δ, γ = p
+        du[1] = dx = α * x - β * x * y
+        du[2] = dy = -δ * y + γ * x * y
+    end
+    prob = ODEProblem(lotka_volterra!, u0, (0.0f0, 56.0f0), p_trained.LV)
+    physics = solve(prob, Tsit5(), saveat = test_plot_t)
+    hare_physics = physics[1,:] * scale[1]
+    lynx_physics = physics[2,:] * scale[2]
+    plot(finalplot_years, hare_physics, label="Hares (LV)", color="dodgerblue1", lw=1)
+    plot!(finalplot_years, lynx_physics, label="Lynx (LV)", color="firebrick2", lw=1)
+end
+
+# Visualize the trained neural network as a 2D function
+f(x, y) = begin
+   _x, _y = U(Float32.([x,y]), p_trained.NN, st)[1]
+   sqrt(_x^2 + _y^2)
+end
+surface(-1:0.01:1, -1:0.01:1, f, c=:viridis, xlabel="Hares", ylabel="Lynx", zlabel="|f(x,y)|")
+f(u) = -f(u[1], u[2])
+using Optim
+optsol = optimize(f,[0.0, 0.0] )
+f(optsol.minimizer)
+x, y = U(Float32.(optsol.minimizer), p_trained.NN, st)[1]
+sqrt(x^2 + y^2)
+
+# Baseline model?
+test_data
+μ = [sum(test_data[i,:])/57 for i in 1:2]
+μ.-test_data
+baseline_MSE = [sum(abs2, μ.-test_data)/57 for i in 1:2]
+baseline_average_error = [sqrt(baseline_MSE[i]) for i in 1:2]
