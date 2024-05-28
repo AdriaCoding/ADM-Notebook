@@ -20,6 +20,7 @@ normalized_data' .* scale
 #Display our data
 dataplot = scatter(train_years, normalized_data[1,:], label="Hares", color="blue", lw=2)
 scatter!(dataplot, train_years, normalized_data[2,:], label="Lynx", color="red", lw=2)
+end
 
 ## Problem conditions
 rng = Xoshiro(0)
