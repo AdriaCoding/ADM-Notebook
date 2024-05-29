@@ -38,24 +38,22 @@ U = Chain(
     Dense(2,5,rbf), Dense(5,5, tanh), Dense(5,2)
     )
 p_nn, state = Lux.setup(rng, U)
-const st = state
+st = state
 # p.LV = [α, β, δ, γ]
-p = ComponentArray(NN=p_nn, LV=rand(rng, Float32,4))
+p = ComponentArray(NN = p_nn)
 
 # Define the hybrid model
 function ude_dynamics!(du, u, p, t)
-    û = U(u, p.NN, st)[1] # Forward pass
-    α, β, γ, δ = p.LV
-    # Lokta-Volterra equations + ANN
-    du[1] = α*u[1] - β*u[1]*u[2] + û[1]
-    du[2] = γ*u[1]*u[2] - δ*u[2] + û[2]
+    _u = U(u, p.NN, st)[1]
+    du[1] = _u[1]
+    du[2] = _u[2]
 end
 prob_nn = ODEProblem(ude_dynamics!, u0, tspan, p)
 
 function predict(θ; ODEalg = AutoTsit5(Rosenbrock23()), u0=u0, T = t)
     _prob = remake(prob_nn, u0 = u0 , tspan = (T[1], T[end]), p = θ)
     Array(solve(_prob, ODEalg, saveat = T,
-    abstol = 1e-6, reltol = 1e-6,
+    abstol = 1f-6, reltol = 1f-6,
     sensealg=QuadratureAdjoint(autojacvec=ReverseDiffVJP(true))))
 end
 
@@ -81,21 +79,18 @@ end
 
 paint(p)
 
-ξ = 0.01f0
 function loss(p)
     pred = predict(p)
-    return sum(abs2, normalized_data .- pred) + 
-        + ξ * sum(abs2, p.NN) 
-        - 100.f0*min.(0.0f0, p.LV)
+    return sum(abs2, normalized_data .- pred)
 end
 
 
 callback = function (opt_state, l; doplot=true)
-    if opt_state.iter % 100 == 0
+    if opt_state.iter % 50 == 0
         println("Current loss after $(opt_state.iter) iterations: $(l)")
     end
     push!(losses, l)
-    if opt_state.iter % 10 == 0
+    if opt_state.iter % 5 == 0
         if doplot
             p = opt_state.u
             paint(p)
@@ -109,14 +104,8 @@ adtype = Optimization.AutoZygote();
 optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype);
 optprob = Optimization.OptimizationProblem(optf, p);
 losses = Float32[]
-res1 = Optimization.solve(optprob, ADAM(0.01), callback = callback, maxiters = 10000);
+res1 = Optimization.solve(optprob, ADAM(0.01), callback = callback, maxiters = 500);
 
-# Second training phase with BFGS was discarded as it loed to overfitting. 
-#=
-optprob2 = Optimization.OptimizationProblem(optf, res1.u);
-res2 = Optimization.solve(optprob2, Optim.BFGS(initial_stepnorm=0.1f0), callback = callback, maxiters = 200);
-println("Final training loss after $(length(losses)) iterations: $(losses[end])")
-=#
 
 # Set final value for the trained parameters
 plot(log10.(losses), label = nothing, xlabel="Iterations", ylabel="log-Loss")
@@ -137,7 +126,6 @@ end
 println("MSE: ", MSE)
 println("Hares MSE: $hares_MSE --> Avergage error: $(sqrt(hares_MSE))")
 println("Lynx  MSE: $lynx_MSE --> Avergage error: $(sqrt(lynx_MSE))")
-println("Lokta-Volterra parameters: $(p_trained.LV)")
 
 # Final Figure with results againts the test data
 begin
@@ -163,26 +151,6 @@ begin
     ylabel!("Population (in thousands)")
 end
 
-
-# EXTRAS
-# Visualize the physics-informed model p_trained.LV = [α, β, δ, γ]
-begin
-    function lotka_volterra!(du, u, p, t)
-        x, y = u
-        α, β, δ, γ = p
-        du[1] = dx = α * x - β * x * y
-        du[2] = dy = -δ * y + γ * x * y
-    end
-    prob = ODEProblem(lotka_volterra!, u0, (0.0f0, 56.0f0), p_trained.LV)
-    physics = solve(prob, Tsit5(), saveat = test_plot_t)
-    hare_physics = physics[1,:] * scale[1]
-    lynx_physics = physics[2,:] * scale[2]
-    plot(finalplot_years, hare_physics, label="Hares (LV)", color="dodgerblue1", lw=1)
-    plot!(finalplot_years, lynx_physics, label="Lynx (LV)", color="firebrick2", lw=1)
-    scatter!(rawdata.year, test_data[1,:], label="Hares", lw=2)
-    scatter!(rawdata.year, test_data[2,:], label="Lynx",  lw=2)
-end
-
 # Visualize the trained neural network as a 2D function
 
 f(x, y) = begin
@@ -191,8 +159,8 @@ sqrt(_x^2 + _y^2)
 end
 surface(-1:0.01:1, -1:0.01:1, f, c=:viridis, xlabel="Hares", ylabel="Lynx", zlabel="|f(x,y)|")
 f(u) = -f(u[1], u[2])
-using Optim
-optsol = optimize(f,[0.0, 0.0] )
+ using Optim;
+optsol = optimize(f,[0.0, 0.0] );
 println("Maximum value of ||NN|| in the unit square: $(-f(optsol.minimizer))")
 
 # Baseline model?

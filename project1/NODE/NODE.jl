@@ -56,7 +56,6 @@ display(p.layer_2.weight[1:6])
 ## 'NeuralODE' model
 prob_neuralode = NeuralODE(NN, tspan, Rosenbrock23(); alg_hints=:stiff,saveat = 1)
 predict_neuralode(p)
-callback(p, loss_neuralode(p)...; doplot = true)
 # use Optimization.jl to solve the problem
 adtype = Optimization.AutoZygote()
 
