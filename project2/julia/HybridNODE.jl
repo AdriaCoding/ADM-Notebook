@@ -35,12 +35,13 @@ rbf(x) = exp.(-(x.^2))
 
 # Define the network 2->5->5->5->2
 U = Chain(
-    Dense(2,5,rbf), Dense(5,5, tanh), Dense(5,2)
+    Dense(2,5,tanh), Dense(5,5, tanh), Dense(5,2)
     )
 p_nn, state = Lux.setup(rng, U)
-const st = state
-# p.LV = [α, β, δ, γ]
-p = ComponentArray(NN=p_nn, LV=rand(rng, Float32,4))
+st = state
+
+# WE FEED SOME GOOD INITIAL VALUES FOR THE PARAMETERS
+p = ComponentArray(NN=p_nn, LV=[0.619f0, 1.986f0, 0.824f0, 2.40f0])
 
 # Define the hybrid model
 function ude_dynamics!(du, u, p, t)
@@ -81,12 +82,12 @@ end
 
 paint(p)
 
-ξ = 0.01f0
+ξ = 5.0f0
 function loss(p)
     pred = predict(p)
     return sum(abs2, normalized_data .- pred) + 
         + ξ * sum(abs2, p.NN) 
-        - 100.f0*min.(0.0f0, p.LV)
+        #- 100.f0*min.(0.0f0, p.LV)
 end
 
 
@@ -105,22 +106,16 @@ callback = function (opt_state, l; doplot=true)
 end
 
 # train this model!!
+
 adtype = Optimization.AutoZygote();
 optf = Optimization.OptimizationFunction((x, p) -> loss(x), adtype);
 optprob = Optimization.OptimizationProblem(optf, p);
 losses = Float32[]
-res1 = Optimization.solve(optprob, ADAM(0.01), callback = callback, maxiters = 10000);
-
-# Second training phase with BFGS was discarded as it loed to overfitting. 
-#=
-optprob2 = Optimization.OptimizationProblem(optf, res1.u);
-res2 = Optimization.solve(optprob2, Optim.BFGS(initial_stepnorm=0.1f0), callback = callback, maxiters = 200);
-println("Final training loss after $(length(losses)) iterations: $(losses[end])")
-=#
+res1 = Optimization.solve(optprob, ADAM(0.01), callback = callback, maxiters = 500);
 
 # Set final value for the trained parameters
 plot(log10.(losses), label = nothing, xlabel="Iterations", ylabel="log-Loss")
-p_trained = res1.u
+p_trained = res1.u;
 
 #Compare with test data 
 begin
@@ -137,8 +132,8 @@ end
 println("MSE: ", MSE)
 println("Hares MSE: $hares_MSE --> Avergage error: $(sqrt(hares_MSE))")
 println("Lynx  MSE: $lynx_MSE --> Avergage error: $(sqrt(lynx_MSE))")
-println("Lokta-Volterra parameters: $(p_trained.LV)")
-
+pp = round.(p_trained, digits=3);
+println("α = $(pp[1]), β = $(pp[2]), δ = $(pp[3]), γ = $(pp[4])")
 # Final Figure with results againts the test data
 begin
     # First, plot the data 
